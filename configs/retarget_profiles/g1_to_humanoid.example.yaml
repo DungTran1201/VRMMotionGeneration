@@ -1,0 +1,162 @@
+# G1-to-Humanoid Retargeting Profile (v1.0)
+# Maps Unitree G1 (34 joints) to Standard VRM Humanoid Bone Hierarchy
+
+version: "1.0.0"
+profile_name: "g1_to_humanoid_standard"
+source_skeleton: "G1Skeleton34"
+target_rig: "VRM_Humanoid"
+coordinate_conversion: "MOTIONBRICKS_TO_GLTF_Y_UP"
+
+# Scale multiplier applied to root translation (meters)
+root_scale: [1.0, 1.0, 1.0]
+
+# Policy for handling missing target bones: "identity" | "warn" | "error"
+missing_bone_policy: "identity"
+
+# Bone mappings from G1 to Humanoid
+# Type can be:
+# - "direct": 1-to-1 joint mapping
+# - "composed_chain": multi-DOF hinge chain multiplied in kinematic order
+# - "approximate": synthetic or stabilized approximation
+bone_mappings:
+  hips:
+    source_joint: "pelvis_skel"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  spine:
+    source_chain:
+      - "waist_yaw_skel"
+      - "waist_roll_skel"
+      - "waist_pitch_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  chest:
+    source_joint: null
+    mapping_type: "approximate"
+    default_rotation: [0.0, 0.0, 0.0, 1.0]
+    confidence: "approximate"
+    note: "G1 has single 3-DOF waist chain; chest inherits spine alignment"
+
+  neck:
+    source_joint: null
+    mapping_type: "approximate"
+    default_rotation: [0.0, 0.0, 0.0, 1.0]
+    confidence: "approximate"
+    note: "G1 robot has fixed rigid torso neck mount"
+
+  head:
+    source_joint: null
+    mapping_type: "approximate"
+    default_rotation: [0.0, 0.0, 0.0, 1.0]
+    confidence: "approximate"
+    note: "Stabilized head orientation aligned with torso"
+
+  # Left Leg
+  leftUpperLeg:
+    source_chain:
+      - "left_hip_pitch_skel"
+      - "left_hip_roll_skel"
+      - "left_hip_yaw_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  leftLowerLeg:
+    source_joint: "left_knee_skel"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  leftFoot:
+    source_chain:
+      - "left_ankle_pitch_skel"
+      - "left_ankle_roll_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  leftToes:
+    source_joint: "left_toe_base"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  # Right Leg
+  rightUpperLeg:
+    source_chain:
+      - "right_hip_pitch_skel"
+      - "right_hip_roll_skel"
+      - "right_hip_yaw_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  rightLowerLeg:
+    source_joint: "right_knee_skel"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  rightFoot:
+    source_chain:
+      - "right_ankle_pitch_skel"
+      - "right_ankle_roll_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  rightToes:
+    source_joint: "right_toe_base"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  # Left Arm
+  leftShoulder:
+    source_joint: "left_shoulder_pitch_skel"
+    mapping_type: "direct"
+    confidence: "approximate"
+    note: "G1 shoulder pitch acts as clavicle/scapula elevation"
+
+  leftUpperArm:
+    source_chain:
+      - "left_shoulder_roll_skel"
+      - "left_shoulder_yaw_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  leftLowerArm:
+    source_joint: "left_elbow_skel"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  leftHand:
+    source_chain:
+      - "left_wrist_roll_skel"
+      - "left_wrist_pitch_skel"
+      - "left_wrist_yaw_skel"
+      - "left_hand_roll_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  # Right Arm
+  rightShoulder:
+    source_joint: "right_shoulder_pitch_skel"
+    mapping_type: "direct"
+    confidence: "approximate"
+    note: "G1 shoulder pitch acts as clavicle/scapula elevation"
+
+  rightUpperArm:
+    source_chain:
+      - "right_shoulder_roll_skel"
+      - "right_shoulder_yaw_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"
+
+  rightLowerArm:
+    source_joint: "right_elbow_skel"
+    mapping_type: "direct"
+    confidence: "exact"
+
+  rightHand:
+    source_chain:
+      - "right_wrist_roll_skel"
+      - "right_wrist_pitch_skel"
+      - "right_wrist_yaw_skel"
+      - "right_hand_roll_skel"
+    mapping_type: "composed_chain"
+    confidence: "exact"

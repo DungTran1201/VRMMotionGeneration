@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph S1 ["1. Motion Generation"]
+        Tokens["Sampled Tokens (Pose/Root Logits)"] --> VQVAE["VQ-VAE Decoder"]
+        VQVAE --> Feat414["Decoded Feature Vector [414-dim]"]
+    end
+
+    subgraph S2 ["2. G1 Reconstruction"]
+        Feat414 --> RootP["Root Pos (0..2) + Heading (3..4)"]
+        Feat414 --> Rot6D["34 x Continuous 6D Rotations (104..307)"]
+        Feat414 --> Contacts["Foot Contacts (410..413)"]
+        Rot6D --> Mat34["34 x World Rotation Matrices [3x3]"]
+        Mat34 --> LocalMat["34 x Parent-Relative Rotation Matrices"]
+    end
+
+    subgraph S3 ["3. Retargeting & Coordinate Flip"]
+        LocalMat --> ComposeChains["Compose Serial Hinge Chains (Hip, Waist, Shoulder, Wrist)"]
+        RootP --> FlipCoord["R_Y(180) Coordinate Conversion (+Z -> -Z)"]
+        ComposeChains --> CanonicalBones["21 Standard Humanoid Bones (xyzw Quaternions)"]
+        FlipCoord --> CanonicalRoot["Canonical Root Position & Orientation"]
+    end
+
+    subgraph S4 ["4. Runtime Consumption"]
+        CanonicalRoot --> CanonicalDoc["CanonicalHumanoidMotion/v1 Document"]
+        CanonicalBones --> CanonicalDoc
+        Contacts --> CanonicalDoc
+        CanonicalDoc --> SlerpInterp["Slerp Interpolation at Render Delta"]
+        SlerpInterp --> VRM["VRM Normalized Bone Node Quaternions"]
+    end

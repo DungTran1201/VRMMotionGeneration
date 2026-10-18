@@ -1,0 +1,26 @@
+graph TB
+    User["User / 3D Animator / Web Client"]
+    VRM_Asset[".VRM Humanoid Avatar Model"]
+
+    subgraph SystemBoundary ["MotionBricks-to-VRM Integration System"]
+        MB_Infer["MotionBricks Inference Engine (Mode B)"]
+        Source_Recon["G1 Kinematic Reconstruction"]
+        Retargeter["Hierarchical Retargeting Engine"]
+        CanonicalDoc["CanonicalHumanoidMotion/v1 Contract"]
+        VRM_Viewer["Three.js / @pixiv/three-vrm Runtime"]
+        FixtureStore["Offline Fixture Store (Mode A)"]
+    end
+
+    UpstreamWeights[("NVIDIA MotionBricks Weights (.ckpt)")]
+
+    User -->|"Input Command / Play / Seek"| VRM_Viewer
+    User -->|"Uploads Model"| VRM_Asset
+    VRM_Asset -->|"Parsed Humanoid Bones"| VRM_Viewer
+
+    UpstreamWeights -.->|"When Pulled via LFS"| MB_Infer
+    MB_Infer -->|"414-dim Global Motion Features"| Source_Recon
+    FixtureStore -->|"Deterministic Locomotion Cycle"| CanonicalDoc
+    Source_Recon -->|"Posed G1 Skeleton Frames"| Retargeter
+    Retargeter -->|"Standardized Humanoid Rotations"| CanonicalDoc
+    CanonicalDoc -->|"Slerp Interpolation & Pose Evaluation"| VRM_Viewer
+    VRM_Viewer -->|"Interactive 3D WebGL Viewport"| User

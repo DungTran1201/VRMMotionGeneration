@@ -1,0 +1,35 @@
+graph TB
+    subgraph FrontendModule ["Frontend (Vite + Three.js + @pixiv/three-vrm)"]
+        UI["UIController (HUD, Badges, Dock)"]
+        Player["AnimationPlayer (Clock, Slerp, Timeline)"]
+        AvatarMgr["AvatarManager (VRM / Procedural Rig)"]
+        Validator["SchemaValidator (In-Browser Contract Check)"]
+        Transport["ApiClient (REST + WebSocket Client)"]
+
+        UI --> Player
+        UI --> AvatarMgr
+        Player --> AvatarMgr
+        Transport --> Player
+        Transport --> Validator
+    end
+
+    subgraph BackendModule ["Python Backend (FastAPI + Pydantic)"]
+        App["FastAPI Service (app.py)"]
+        Session["StreamingSessionManager (WebSocket WS /ws/motion)"]
+        SourceAdapt["MotionBricksInferenceAdapter (Lifecycle & Mode B)"]
+        Recon["G1SkeletonReconstructor (6D->Matrix, FK)"]
+        Retarget["G1ToHumanoidRetargeter (G1->Humanoid)"]
+        MathUtils["MathUtils (Quaternions, Coordinate Frames)"]
+        Schemas["CanonicalHumanoidMotion Schemas (Pydantic v2)"]
+
+        App --> Session
+        App --> SourceAdapt
+        App --> Schemas
+        SourceAdapt --> Recon
+        SourceAdapt --> Retarget
+        Recon --> MathUtils
+        Retarget --> MathUtils
+        Retarget --> Schemas
+    end
+
+    Transport <==>|"REST /api/* & WS /ws/motion"| App

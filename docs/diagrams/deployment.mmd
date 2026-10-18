@@ -1,0 +1,40 @@
+graph TB
+    subgraph ClientDevice ["Client Tier (Browser Environment)"]
+        BrowserUI["Web Browser (Chrome / Edge / Firefox)"]
+        ThreeCanvas["Three.js WebGL2 Canvas"]
+        VRMParser["@pixiv/three-vrm Runtime"]
+        LocalVRMFile[("User Local .VRM Avatar")]
+
+        LocalVRMFile -->|"Local File Drag & Drop"| VRMParser
+        VRMParser --> ThreeCanvas
+        BrowserUI --> ThreeCanvas
+    end
+
+    subgraph HostServer ["Host / Edge Application Tier"]
+        subgraph StaticServer ["Frontend Static Server"]
+            ViteDev["Vite Dev Server / Static CDN (Port 5173)"]
+            SampleJSON[("fixtures/sample_motion.json")]
+            ViteDev --- SampleJSON
+        end
+
+        subgraph APIServer ["Backend Microservice Tier"]
+            Uvicorn["Uvicorn ASGI Server (Port 8000)"]
+            FastAPIRuntime["FastAPI Application (motionbricks_vrm)"]
+            Uvicorn --- FastAPIRuntime
+        end
+    end
+
+    subgraph ModelTier ["Model & Weights Tier (Mode B Optional)"]
+        PyTorchEngine["PyTorch 2.x Runtime (CPU / CUDA 13.1)"]
+        CheckpointsStorage[("Git LFS Model Storage (~2.3 GB)
+        - model-step=2000000.ckpt (Pose)
+        - model-step=2000000.ckpt (Root)
+        - model-step=2000000.ckpt (VQVAE)
+        - G1-clip.ckpt (Clips)")]
+        PyTorchEngine --- CheckpointsStorage
+    end
+
+    BrowserUI <-->|"HTTP / JSON (REST APIs)"| Uvicorn
+    BrowserUI <-->|"WebSocket WS /ws/motion"| Uvicorn
+    BrowserUI -->|"GET /sample_motion.json"| ViteDev
+    FastAPIRuntime -.->|"When weights pulled"| PyTorchEngine
