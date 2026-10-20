@@ -1,6 +1,7 @@
 /**
  * Telemetry HUD Manager.
  * Formats and updates generation metrics, hardware state, and live rendering FPS.
+ * Strict adherence to evidence-based metrics without prefilled or fabricated numbers.
  */
 
 export class TelemetryHud {
@@ -8,7 +9,7 @@ export class TelemetryHud {
     this.fpsCounter = {
       frames: 0,
       lastTime: performance.now(),
-      currentFps: 60,
+      currentFps: 0,
     };
 
     // DOM Elements
@@ -23,11 +24,23 @@ export class TelemetryHud {
     this.elLatency = document.getElementById('metricLatency');
     this.elVram = document.getElementById('metricVram');
     this.elRenderFps = document.getElementById('metricRenderFps');
+
+    this.resetToIdle();
+  }
+
+  resetToIdle() {
+    if (this.elStatus) this.elStatus.textContent = 'Idle';
+    if (this.elDuration) this.elDuration.textContent = '—';
+    if (this.elGenTime) this.elGenTime.textContent = '—';
+    if (this.elEffectiveFps) this.elEffectiveFps.textContent = '—';
+    if (this.elRtf) this.elRtf.textContent = '—';
+    if (this.elLatency) this.elLatency.textContent = '—';
+    if (this.elVram) this.elVram.textContent = 'N/A';
   }
 
   setMode(mode) {
     if (!this.elModeBadge) return;
-    const cleanMode = (mode || 'LIVE ARDY').toUpperCase();
+    const cleanMode = (mode || 'FIXTURE PREVIEW').toUpperCase();
     this.elModeBadge.innerHTML = `<span class="pulse-dot"></span><span>${cleanMode}</span>`;
 
     this.elModeBadge.className = 'mode-badge';
@@ -35,7 +48,9 @@ export class TelemetryHud {
       this.elModeBadge.classList.add('fixture');
     } else if (cleanMode.includes('BATCH')) {
       this.elModeBadge.classList.add('batch');
-    } else if (cleanMode.includes('UNAVAILABLE') || cleanMode.includes('ERROR')) {
+    } else if (cleanMode.includes('LIVE')) {
+      this.elModeBadge.classList.add('live');
+    } else if (cleanMode.includes('UNAVAILABLE') || cleanMode.includes('ERROR') || cleanMode.includes('OFFLINE')) {
       this.elModeBadge.classList.add('error');
     }
   }
@@ -43,22 +58,22 @@ export class TelemetryHud {
   setSystemInfo(health) {
     if (!this.elSystemPill) return;
     if (health.cuda_available && health.gpu_name) {
-      const vram = health.vram_free_mb ? ` | ${health.vram_free_mb} MB VRAM Free` : '';
+      const vram = health.vram_free_mb ? ` | ${health.vram_free_mb} MB Free` : '';
       this.elSystemPill.textContent = `${health.gpu_name}${vram}`;
     } else {
-      this.elSystemPill.textContent = 'CPU Mode (CUDA Offline)';
+      this.elSystemPill.textContent = 'CPU Mode (Deterministic Fixture)';
     }
   }
 
-  updateMetrics(telemetry, fallbackMode = 'LIVE ARDY') {
+  updateMetrics(telemetry, fallbackMode = null) {
     if (!telemetry) return;
 
     if (this.elStatus) this.elStatus.textContent = 'Playing';
     if (this.elModel) this.elModel.textContent = telemetry.model_name || 'ARDY-Core8';
 
     if (this.elDuration) {
-      const req = telemetry.requested_duration ? `${telemetry.requested_duration.toFixed(2)}s` : '--';
-      const act = telemetry.actual_duration ? `${telemetry.actual_duration.toFixed(2)}s` : '--';
+      const req = telemetry.requested_duration ? `${telemetry.requested_duration.toFixed(2)}s` : '—';
+      const act = telemetry.actual_duration ? `${telemetry.actual_duration.toFixed(2)}s` : '—';
       const frames = telemetry.total_frames ? ` (${telemetry.total_frames}f)` : '';
       this.elDuration.textContent = `${req} / ${act}${frames}`;
     }
@@ -66,31 +81,31 @@ export class TelemetryHud {
     if (this.elGenTime) {
       const ms = telemetry.generation_time_seconds
         ? `${(telemetry.generation_time_seconds * 1000).toFixed(0)} ms`
-        : '--';
+        : '—';
       this.elGenTime.textContent = ms;
     }
 
     if (this.elEffectiveFps) {
       const fps = telemetry.effective_generated_fps
         ? `${telemetry.effective_generated_fps.toFixed(1)} FPS`
-        : '--';
+        : '—';
       this.elEffectiveFps.textContent = fps;
     }
 
     if (this.elRtf) {
       if (telemetry.real_time_factor !== undefined && telemetry.real_time_factor !== null) {
         const rtf = telemetry.real_time_factor.toFixed(2);
-        const desc = telemetry.real_time_factor < 1.0 ? ' (<1.0x Realtime)' : ' (>1.0x Realtime)';
+        const desc = telemetry.real_time_factor < 1.0 ? ' (<1.0x Realtime)' : ' (>=1.0x Realtime)';
         this.elRtf.textContent = `${rtf}${desc}`;
       } else {
-        this.elRtf.textContent = '--';
+        this.elRtf.textContent = '—';
       }
     }
 
     if (this.elLatency) {
       const lat = telemetry.end_to_end_latency_ms
         ? `${telemetry.end_to_end_latency_ms.toFixed(0)} ms`
-        : '--';
+        : '—';
       this.elLatency.textContent = lat;
     }
 

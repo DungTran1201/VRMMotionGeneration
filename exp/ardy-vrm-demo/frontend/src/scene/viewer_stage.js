@@ -1,118 +1,185 @@
 /**
- * Dual Viewport Stage Setup.
- * Manages separate Three.js scenes, cameras, lighting, and OrbitControls
- * for side-by-side comparison of Motion Skeleton and VRM Avatar.
+ * Unified Fullscreen 3D Stage.
+ * Manages a single Three.js scene, camera, lighting, and floor grid for
+ * side-by-side comparison of Motion Skeleton and VRM Avatar in a shared world.
  */
 
 export class ViewerStage {
-  constructor(THREE, OrbitControls, skeletonCanvas, vrmCanvas) {
+  /**
+   * @param {object} THREE - Three.js core library
+   * @param {class} OrbitControls - Three.js OrbitControls
+   * @param {HTMLCanvasElement} stageCanvas - Fullscreen WebGL canvas
+   */
+  constructor(THREE, OrbitControls, stageCanvas) {
     this.THREE = THREE;
     this.OrbitControls = OrbitControls;
+    this.canvas = stageCanvas;
 
-    // Viewport 1: Skeleton
-    this.skeleton = this.createViewport(skeletonCanvas, 'Skeleton Viewport');
+    // Single shared scene
+    this.scene = new THREE.Scene();
+    this.scene.name = 'ARDY_SharedStage';
 
-    // Viewport 2: VRM
-    this.vrm = this.createViewport(vrmCanvas, 'VRM Viewport');
-
-    this.defaultCameraPos = new THREE.Vector3(0, 1.1, 2.8);
+    // Single shared camera
+    this.defaultCameraPos = new THREE.Vector3(0, 1.25, 3.2);
     this.defaultCameraTarget = new THREE.Vector3(0, 0.9, 0);
 
-    this.resetCamera();
-    this.setupResizeListeners(skeletonCanvas, vrmCanvas);
-  }
+    this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50);
+    this.camera.position.copy(this.defaultCameraPos);
 
-  createViewport(canvas, name) {
-    const THREE = this.THREE;
-
-    const scene = new THREE.Scene();
-    scene.name = name;
-
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50);
-    camera.position.set(0, 1.1, 2.8);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
+    // Single WebGL renderer
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: stageCanvas,
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
 
-    const controls = new this.OrbitControls(camera, canvas);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.target.set(0, 0.9, 0);
-    controls.maxPolarAngle = Math.PI / 2 + 0.05; // Do not go below floor
-    controls.minDistance = 0.5;
-    controls.maxDistance = 10.0;
+    // Single OrbitControls
+    this.controls = new this.OrbitControls(this.camera, stageCanvas);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.target.copy(this.defaultCameraTarget);
+    this.controls.maxPolarAngle = Math.PI / 2 + 0.04; // Keep camera above world floor
+    this.controls.minDistance = 0.5;
+    this.controls.maxDistance = 12.0;
 
-    // Lighting setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-    scene.add(ambientLight);
+    // Lighting setup for high contrast technical viewing
+    this.setupLighting();
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(1.5, 3.5, 2.5);
-    scene.add(keyLight);
+    // World floor grid & contact markers
+    this.setupWorldFloor();
 
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
-    fillLight.position.set(-2.0, 1.5, -1.0);
-    scene.add(fillLight);
+    // Root groups for side-by-side comparison
+    this.stageRoot = new THREE.Group();
+    this.stageRoot.name = 'StageRoot';
+    this.scene.add(this.stageRoot);
 
-    // Floor Grid
-    const grid = new THREE.GridHelper(8, 32, 0x06b6d4, 0x1e293b);
+    // Skeleton at left offset (-0.75m), VRM Avatar at right offset (+0.75m)
+    this.skeletonRoot = new THREE.Group();
+    this.skeletonRoot.name = 'SkeletonComparisonRoot';
+    this.skeletonRoot.position.set(-0.75, 0, 0);
+    this.stageRoot.add(this.skeletonRoot);
+
+    this.vrmRoot = new THREE.Group();
+    this.vrmRoot.name = 'VRMComparisonRoot';
+    this.vrmRoot.position.set(0.75, 0, 0);
+    this.stageRoot.add(this.vrmRoot);
+
+    // Setup responsive resize
+    this.setupResize();
+  }
+
+  setupLighting() {
+    const THREE = this.THREE;
+
+    // Ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    this.scene.add(ambientLight);
+
+    // Key directional light (front right)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    keyLight.position.set(2.5, 4.0, 3.0);
+    this.scene.add(keyLight);
+
+    // Soft cyan fill light (front left)
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.55);
+    fillLight.position.set(-3.0, 2.0, -1.0);
+    this.scene.add(fillLight);
+
+    // Indigo rim light (rear)
+    const rimLight = new THREE.DirectionalLight(0x818cf8, 0.4);
+    rimLight.position.set(0, 2.5, -3.5);
+    this.scene.add(rimLight);
+  }
+
+  setupWorldFloor() {
+    const THREE = this.THREE;
+
+    // Primary world grid
+    const grid = new THREE.GridHelper(12, 48, 0x06b6d4, 0x1e293b);
     grid.position.y = 0.0;
-    scene.add(grid);
+    this.scene.add(grid);
 
-    return { scene, camera, renderer, controls, canvas };
+    // Circular contact base markers
+    const createMarker = (x, color) => {
+      const ringGeo = new THREE.RingGeometry(0.35, 0.38, 32);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.4,
+      });
+      const marker = new THREE.Mesh(ringGeo, ringMat);
+      marker.position.set(x, 0.002, 0);
+      return marker;
+    };
+
+    this.scene.add(createMarker(-0.75, 0x06b6d4)); // Cyan for skeleton
+    this.scene.add(createMarker(0.75, 0x10b981));  // Emerald for VRM avatar
   }
 
-  resetCamera() {
-    [this.skeleton, this.vrm].forEach((vp) => {
-      vp.camera.position.copy(this.defaultCameraPos);
-      vp.controls.target.copy(this.defaultCameraTarget);
-      vp.controls.update();
-    });
-  }
-
-  setupResizeListeners(c1, c2) {
-    const resizeObserver = new ResizeObserver(() => {
-      this.resizeViewport(this.skeleton);
-      this.resizeViewport(this.vrm);
+  setupResize() {
+    this.resizeObserver = new ResizeObserver(() => {
+      this.handleResize();
     });
 
-    if (c1.parentElement) resizeObserver.observe(c1.parentElement);
-    if (c2.parentElement) resizeObserver.observe(c2.parentElement);
+    const container = this.canvas.parentElement || document.body;
+    this.resizeObserver.observe(container);
+    window.addEventListener('resize', () => this.handleResize());
 
     // Initial resize pass
-    setTimeout(() => {
-      this.resizeViewport(this.skeleton);
-      this.resizeViewport(this.vrm);
-    }, 50);
+    setTimeout(() => this.handleResize(), 50);
   }
 
-  resizeViewport(vp) {
-    const container = vp.canvas.parentElement;
-    if (!container) return;
-
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+  handleResize() {
+    const container = this.canvas.parentElement || document.body;
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
 
     if (width > 0 && height > 0) {
-      vp.camera.aspect = width / height;
-      vp.camera.updateProjectionMatrix();
-      vp.renderer.setSize(width, height, false);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(width, height, false);
     }
   }
 
-  render() {
-    this.skeleton.controls.update();
-    this.vrm.controls.update();
+  resetCamera() {
+    this.controls.target.copy(this.defaultCameraTarget);
+    this.camera.position.copy(this.defaultCameraPos);
+    this.controls.update();
+  }
 
-    this.skeleton.renderer.render(this.skeleton.scene, this.skeleton.camera);
-    this.vrm.renderer.render(this.vrm.scene, this.vrm.camera);
+  frameAvatar() {
+    this.controls.target.set(0.75, 0.9, 0);
+    this.camera.position.set(0.75, 1.15, 2.3);
+    this.controls.update();
+  }
+
+  frameSkeleton() {
+    this.controls.target.set(-0.75, 0.9, 0);
+    this.camera.position.set(-0.75, 1.15, 2.3);
+    this.controls.update();
+  }
+
+  frameBoth() {
+    this.resetCamera();
+  }
+
+  render() {
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  dispose() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+    this.renderer.dispose();
+    this.controls.dispose();
   }
 }

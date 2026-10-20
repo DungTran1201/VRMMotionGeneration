@@ -1,11 +1,13 @@
 /**
  * Main application coordinator for ARDY -> VRM Motion Lab.
+ * Manages full-page 3D stage, customizable floating tool windows,
+ * synchronized timeline playback, and reliable VRM loading.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRMLoaderPlugin } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 import { ApiClient } from '../api/client.js';
 import { ViewerStage } from '../scene/viewer_stage.js';
@@ -13,6 +15,7 @@ import { SkeletonRenderer } from '../skeleton/skeleton_renderer.js';
 import { VrmManager } from '../vrm/vrm_manager.js';
 import { TimelineController } from '../animation/timeline_controller.js';
 import { TelemetryHud } from '../telemetry/telemetry_hud.js';
+import { FloatingWindow } from '../components/floating_window.js';
 
 class App {
   constructor() {
@@ -20,34 +23,70 @@ class App {
     this.telemetry = new TelemetryHud();
     this.timeline = new TimelineController();
 
-    // DOM References
-    this.skeletonCanvas = document.getElementById('skeletonCanvas');
-    this.vrmCanvas = document.getElementById('vrmCanvas');
+    // DOM Elements - Stage & Canvas
+    this.stageCanvas = document.getElementById('stageCanvas');
+    this.stageDropOverlay = document.getElementById('stageDropOverlay');
+
+    // DOM Elements - Toolbar
+    this.btnToggleControls = document.getElementById('btnToggleControls');
+    this.btnToggleTelemetry = document.getElementById('btnToggleTelemetry');
+    this.btnResetCamera = document.getElementById('btnResetCamera');
+    this.btnFrameAvatar = document.getElementById('btnFrameAvatar');
+    this.btnFrameSkeleton = document.getElementById('btnFrameSkeleton');
+    this.btnFrameBoth = document.getElementById('btnFrameBoth');
+
+    // DOM Elements - Motion Controls Window
+    this.winControlsEl = document.getElementById('winMotionControls');
     this.promptInput = document.getElementById('promptInput');
     this.durationSlider = document.getElementById('durationSlider');
     this.durationVal = document.getElementById('durationVal');
     this.seedInput = document.getElementById('seedInput');
     this.loopToggle = document.getElementById('loopToggle');
     this.showSkeletonToggle = document.getElementById('showSkeletonToggle');
+    this.showVrmToggle = document.getElementById('showVrmToggle');
     this.btnGenerate = document.getElementById('btnGenerate');
     this.btnCancel = document.getElementById('btnCancel');
+    this.btnLoadVrm = document.getElementById('btnLoadVrm');
+    this.btnRemoveVrm = document.getElementById('btnRemoveVrm');
+    this.vrmFileInput = document.getElementById('vrmFileInput');
+    this.vrmInfoBadge = document.getElementById('vrmInfoBadge');
+    this.vrmStatusText = document.getElementById('vrmStatusText');
+
+    // DOM Elements - Timeline Scrubber
     this.btnPlayPause = document.getElementById('btnPlayPause');
     this.btnRestart = document.getElementById('btnRestart');
     this.timelineSlider = document.getElementById('timelineSlider');
     this.timelineLabel = document.getElementById('timelineLabel');
-    this.vrmFileInput = document.getElementById('vrmFileInput');
-    this.vrmEmptyState = document.getElementById('vrmEmptyState');
-    this.vrmInfoBadge = document.getElementById('vrmInfoBadge');
-    this.btnResetCamera = document.getElementById('btnResetCamera');
+    this.speedSelect = document.getElementById('speedSelect');
+
+    // DOM Elements - Notification Toast
     this.toastBanner = document.getElementById('toastBanner');
 
-    // Setup 3D Scene & Renderers
-    this.stage = new ViewerStage(THREE, OrbitControls, this.skeletonCanvas, this.vrmCanvas);
-    this.skeletonRenderer = new SkeletonRenderer(THREE, this.stage.skeleton.scene);
-    this.vrmManager = new VrmManager(THREE, this.stage.vrm.scene, GLTFLoader, VRMLoaderPlugin);
+    // Initialize 3D Stage & Rig Managers
+    this.stage = new ViewerStage(THREE, OrbitControls, this.stageCanvas);
+    this.skeletonRenderer = new SkeletonRenderer(THREE, this.stage.skeletonRoot);
+    this.vrmManager = new VrmManager(THREE, this.stage.vrmRoot, GLTFLoader, VRMLoaderPlugin, VRMUtils);
+
+    // Initialize Floating Windows
+    const isMobile = window.innerWidth < 768;
+    this.winControls = new FloatingWindow(this.winControlsEl, {
+      minWidth: 320,
+      minHeight: 220,
+      initialX: isMobile ? 12 : 24,
+      initialY: 60,
+    });
+
+    this.winTelemetryEl = document.getElementById('winTelemetry');
+    this.winTelemetry = new FloatingWindow(this.winTelemetryEl, {
+      minWidth: 280,
+      minHeight: 180,
+      initialX: isMobile ? 12 : Math.max(24, window.innerWidth - 380),
+      initialY: isMobile ? 320 : 60,
+    });
 
     this.activeJobId = null;
     this.activeWebSocket = null;
+    this.currentMotionPayload = null;
     this.clock = new THREE.Clock();
 
     this.init();
@@ -57,76 +96,108 @@ class App {
     this.bindEvents();
     this.setupPresets();
 
-    // Timeline tick callback
+    // Timeline tick subscription
     this.timeline.onFrameUpdate((frame, time, totalFrames, duration) => {
       this.updateTimelineUI(frame, time, totalFrames, duration);
     });
 
-    // Check backend health & system specs
+    // Check backend health and GPU specifications
     try {
       const health = await this.api.getHealth();
       this.telemetry.setSystemInfo(health);
       this.telemetry.setMode(health.mode);
     } catch (e) {
-      console.warn('Backend offline or health error:', e);
-      this.telemetry.setMode('MODEL UNAVAILABLE');
+      console.warn('Backend offline or health probe failed:', e);
+      this.telemetry.setMode('MODEL OFFLINE');
       this.showToast('Backend server is not responding. Showing offline mode.');
     }
 
-    // Load initial default sample
+    // Load initial default motion sequence
     try {
-      this.telemetry.setStatus('Loading default sample...');
+      this.telemetry.setStatus('Loading sample motion...');
       const sample = await this.api.getDefaultSample();
       this.applyMotionPayload(sample);
       this.telemetry.setStatus('Playing');
     } catch (e) {
-      console.warn('Could not load default sample:', e);
+      console.warn('Could not load default motion sample:', e);
       this.telemetry.setStatus('Idle');
     }
 
-    // Start render loop
+    // Start single continuous animation loop
     requestAnimationFrame((t) => this.loop(t));
   }
 
   applyMotionPayload(payload) {
     if (!payload) return;
+    this.currentMotionPayload = payload;
 
     if (payload.prompt && this.promptInput && !this.promptInput.value) {
       this.promptInput.value = payload.prompt;
     }
 
-    // Load skeleton data
+    // Load skeleton data into skeleton renderer
     if (payload.skeleton) {
       this.skeletonRenderer.loadSkeletonData(payload.skeleton);
     }
 
-    // Feed VRM motion data
+    // Apply VRM motion data to VRM avatar manager
     if (payload.vrm) {
       this.vrmManager.setMotionData(payload.vrm);
+      // Immediately pose to current frame if avatar already loaded
+      this.vrmManager.updateFrame(this.timeline.currentFrame);
     }
 
-    // Update timeline sequence
+    // Synchronize timeline sequence
     this.timeline.setMotionSequence(
       payload.total_frames,
       payload.fps,
       payload.duration_seconds
     );
 
-    // Update telemetry HUD
+    // Update telemetry metrics with truthful data
     this.telemetry.updateMetrics(payload.telemetry, payload.mode || 'LIVE ARDY');
   }
 
   bindEvents() {
+    // Toolbar window toggles
+    if (this.btnToggleControls) {
+      this.btnToggleControls.addEventListener('click', () => {
+        const isVis = this.winControls.toggle();
+        this.btnToggleControls.classList.toggle('active', isVis);
+      });
+    }
+
+    if (this.btnToggleTelemetry) {
+      this.btnToggleTelemetry.addEventListener('click', () => {
+        const isVis = this.winTelemetry.toggle();
+        this.btnToggleTelemetry.classList.toggle('active', isVis);
+      });
+    }
+
+    // Camera Framing Buttons
+    if (this.btnResetCamera) {
+      this.btnResetCamera.addEventListener('click', () => this.stage.resetCamera());
+    }
+    if (this.btnFrameAvatar) {
+      this.btnFrameAvatar.addEventListener('click', () => this.stage.frameAvatar());
+    }
+    if (this.btnFrameSkeleton) {
+      this.btnFrameSkeleton.addEventListener('click', () => this.stage.frameSkeleton());
+    }
+    if (this.btnFrameBoth) {
+      this.btnFrameBoth.addEventListener('click', () => this.stage.frameBoth());
+    }
+
     // Generate Button
     this.btnGenerate.addEventListener('click', () => this.handleGenerate());
 
-    // Cancel Button
+    // Cancel / Stop Button
     this.btnCancel.addEventListener('click', () => this.handleCancel());
 
     // Duration slider
     this.durationSlider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
-      const frames = Math.round(val * 20);
+      const frames = Math.round(val * 20); // 20 FPS canonical model rate
       this.durationVal.textContent = `${val.toFixed(1)}s (${frames}f)`;
     });
 
@@ -135,10 +206,16 @@ class App {
       this.timeline.setLoop(e.target.checked);
     });
 
-    // Skeleton Visibility Toggle
+    // Rig Visibility Toggles
     this.showSkeletonToggle.addEventListener('change', (e) => {
       this.skeletonRenderer.setVisible(e.target.checked);
     });
+
+    if (this.showVrmToggle) {
+      this.showVrmToggle.addEventListener('change', (e) => {
+        this.stage.vrmRoot.visible = e.target.checked;
+      });
+    }
 
     // Play/Pause button
     this.btnPlayPause.addEventListener('click', () => {
@@ -151,49 +228,97 @@ class App {
       this.timeline.restart();
     });
 
-    // Timeline seek
+    // Timeline seek scrubber
     this.timelineSlider.addEventListener('input', (e) => {
       const frame = parseInt(e.target.value, 10);
       this.timeline.seekToFrame(frame);
     });
 
-    // Camera reset
-    if (this.btnResetCamera) {
-      this.btnResetCamera.addEventListener('click', () => {
-        this.stage.resetCamera();
+    // Playback Speed Selector
+    if (this.speedSelect) {
+      this.speedSelect.addEventListener('change', (e) => {
+        const speed = parseFloat(e.target.value);
+        this.timeline.setSpeed(speed);
       });
     }
 
-    // VRM File Input
+    // VRM Avatar Loading: Single Authoritative File Input
+    if (this.btnLoadVrm) {
+      this.btnLoadVrm.addEventListener('click', () => {
+        this.vrmFileInput.click();
+      });
+    }
+
     this.vrmFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) this.loadVrmFile(file);
+      if (file) {
+        this.loadVrmFile(file);
+      }
+      // Reset input value so reloading the same file triggers change
+      e.target.value = '';
     });
 
-    // Drag and Drop on VRM viewport
-    const vrmContainer = this.vrmCanvas.parentElement;
-    vrmContainer.addEventListener('dragover', (e) => {
+    // Remove VRM button
+    if (this.btnRemoveVrm) {
+      this.btnRemoveVrm.addEventListener('click', () => {
+        this.vrmManager.disposeCurrent();
+        this.vrmInfoBadge.className = 'vrm-info-badge';
+        this.vrmInfoBadge.textContent = 'No Avatar';
+        this.vrmStatusText.textContent = 'No VRM avatar loaded';
+        this.btnRemoveVrm.style.display = 'none';
+        this.showToast('VRM avatar removed.');
+      });
+    }
+
+    // Full-Stage Drag & Drop
+    const dropTarget = window;
+    let dragCounter = 0;
+
+    dropTarget.addEventListener('dragenter', (e) => {
       e.preventDefault();
-      vrmContainer.style.outline = '2px dashed #06b6d4';
+      dragCounter++;
+      if (this.stageDropOverlay) {
+        this.stageDropOverlay.classList.add('active');
+      }
     });
-    vrmContainer.addEventListener('dragleave', () => {
-      vrmContainer.style.outline = 'none';
-    });
-    vrmContainer.addEventListener('drop', (e) => {
+
+    dropTarget.addEventListener('dragleave', (e) => {
       e.preventDefault();
-      vrmContainer.style.outline = 'none';
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      dragCounter--;
+      if (dragCounter <= 0 && this.stageDropOverlay) {
+        this.stageDropOverlay.classList.remove('active');
+      }
+    });
+
+    dropTarget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    dropTarget.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      if (this.stageDropOverlay) {
+        this.stageDropOverlay.classList.remove('active');
+      }
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
         this.loadVrmFile(e.dataTransfer.files[0]);
       }
     });
 
-    // Keyboard shortcuts
+    // Global Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
       if (e.code === 'Space') {
         e.preventDefault();
         const playing = this.timeline.togglePlay();
         this.btnPlayPause.textContent = playing ? 'Pause' : 'Play';
+      } else if (e.code === 'KeyR') {
+        e.preventDefault();
+        this.stage.resetCamera();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        this.stage.frameAvatar();
       }
     });
   }
@@ -211,9 +336,10 @@ class App {
 
     container.innerHTML = '';
     presets.forEach((text, i) => {
-      const chip = document.createElement('div');
+      const chip = document.createElement('button');
+      chip.type = 'button';
       chip.className = 'preset-chip';
-      chip.textContent = `Preset ${i + 1}: ${text.slice(0, 32)}...`;
+      chip.textContent = text.slice(0, 36) + '...';
       chip.title = text;
       chip.addEventListener('click', () => {
         this.promptInput.value = text;
@@ -222,10 +348,57 @@ class App {
     });
   }
 
+  async loadVrmFile(file) {
+    if (!file) return;
+
+    this.vrmInfoBadge.className = 'vrm-info-badge loading';
+    this.vrmInfoBadge.textContent = 'Parsing...';
+    this.vrmStatusText.textContent = `Loading ${file.name}...`;
+
+    try {
+      const result = await this.vrmManager.loadFromFile(
+        file,
+        (percent) => {
+          if (percent !== null) {
+            this.vrmInfoBadge.textContent = `${percent}%`;
+          } else {
+            this.vrmInfoBadge.textContent = 'Parsing...';
+          }
+        }
+      );
+
+      if (!result) return; // Load superseded by another file
+
+      const { metadata, diagnostics } = result;
+      this.vrmInfoBadge.className = 'vrm-info-badge loaded';
+      this.vrmInfoBadge.textContent = `${metadata.version}`;
+      this.vrmInfoBadge.title = `Author: ${metadata.author} | Size: ${metadata.fileSizeMB}MB | Height: ${metadata.heightMeters}m | Bones: ${diagnostics.boneCount}`;
+      this.vrmStatusText.textContent = `${metadata.name} (${metadata.heightMeters}m)`;
+
+      if (this.btnRemoveVrm) {
+        this.btnRemoveVrm.style.display = 'inline-flex';
+      }
+
+      this.showToast(`Loaded ${metadata.name} (${metadata.version})`);
+
+      // If motion payload is currently loaded, bind it to new avatar immediately
+      if (this.currentMotionPayload?.vrm) {
+        this.vrmManager.setMotionData(this.currentMotionPayload.vrm);
+        this.vrmManager.updateFrame(this.timeline.currentFrame);
+      }
+    } catch (err) {
+      console.error('VRM Load Failure:', err);
+      this.vrmInfoBadge.className = 'vrm-info-badge error';
+      this.vrmInfoBadge.textContent = 'Load Error';
+      this.vrmStatusText.textContent = err.message || 'Failed to load VRM';
+      this.showToast(`VRM Error: ${err.message}`);
+    }
+  }
+
   async handleGenerate() {
     const prompt = this.promptInput.value.trim();
     if (!prompt) {
-      this.showToast('Please enter a motion prompt.');
+      this.showToast('Please enter a motion conditioning prompt.');
       return;
     }
 
@@ -240,23 +413,21 @@ class App {
       this.activeJobId = job_id;
       this.telemetry.setStatus(`Job ${job_id} queued`);
 
-      // Subscribe to WebSocket events for real-time streaming progress
+      // Subscribe to WebSocket events for progress streaming
       this.activeWebSocket = this.api.subscribeJobEvents(
         job_id,
-        (event) => {
-          this.handleJobEvent(event);
-        },
+        (event) => this.handleJobEvent(event),
         (err) => {
-          console.warn('WS error, falling back to polling:', err);
+          console.warn('WebSocket stream error, falling back to polling:', err);
           this.pollJobStatus(job_id);
         },
-        (finalEvent) => {
+        () => {
           this.setGeneratingUI(false);
           this.activeJobId = null;
         }
       );
     } catch (e) {
-      this.showToast(e.message || 'Failed to submit generation.');
+      this.showToast(e.message || 'Failed to submit generation job.');
       this.setGeneratingUI(false);
       this.telemetry.setStatus('Error');
     }
@@ -266,7 +437,7 @@ class App {
     if (!event) return;
 
     if (event.status === 'processing') {
-      const step = event.progress_step || 'diffusion denoiser';
+      const step = event.progress_step || 'denoiser';
       this.telemetry.setStatus(`Generating (${step})...`);
     } else if (event.status === 'completed') {
       this.telemetry.setStatus('Complete');
@@ -275,10 +446,10 @@ class App {
       }
     } else if (event.status === 'failed') {
       this.telemetry.setStatus('Failed');
-      this.showToast(event.error_message || 'Generation failed.');
+      this.showToast(event.error_message || 'Motion generation failed.');
     } else if (event.status === 'cancelled') {
       this.telemetry.setStatus('Cancelled');
-      this.showToast('Job was cancelled.');
+      this.showToast('Generation job was cancelled.');
     }
   }
 
@@ -316,28 +487,6 @@ class App {
     }
   }
 
-  async loadVrmFile(file) {
-    this.vrmEmptyState.classList.add('hidden');
-    this.vrmInfoBadge.style.display = 'inline-block';
-    this.vrmInfoBadge.textContent = `Parsing ${file.name}...`;
-
-    this.vrmManager.loadFromFile(
-      file,
-      (percent) => {
-        this.vrmInfoBadge.textContent = `Loading ${percent}%...`;
-      },
-      (meta) => {
-        this.vrmInfoBadge.textContent = `Avatar: ${meta.name} (${meta.fileSizeMB} MB)`;
-        this.showToast(`Loaded VRM: ${meta.name}`);
-      },
-      (err) => {
-        this.vrmEmptyState.classList.remove('hidden');
-        this.vrmInfoBadge.style.display = 'none';
-        this.showToast(`VRM Error: ${err.message}`);
-      }
-    );
-  }
-
   setGeneratingUI(isGenerating) {
     this.btnGenerate.disabled = isGenerating;
     this.btnCancel.disabled = !isGenerating;
@@ -369,23 +518,23 @@ class App {
 
     const delta = this.clock.getDelta();
 
-    // Advance timeline
+    // Advance shared timeline
     this.timeline.update(delta);
 
-    // Update 3D rigs
+    // Update rigs synchronously
     const currentFrame = this.timeline.currentFrame;
     this.skeletonRenderer.updateFrame(currentFrame);
     this.vrmManager.updateFrame(currentFrame, delta);
 
-    // Render scenes
+    // Render single shared scene once per frame
     this.stage.render();
 
-    // Record FPS
+    // Live render FPS tracking
     this.telemetry.recordRenderFrame();
   }
 }
 
-// Instantiate on DOM load
+// Instantiate application on DOM ready
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new App();
 });

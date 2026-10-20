@@ -1,0 +1,45 @@
+graph TD
+    subgraph Browser_Viewport ["Browser Viewport (100dvw x 100dvh)"]
+        subgraph Stage_Layer ["Fullscreen 3D Stage (Z-Index: 1)"]
+            Canvas["#stageCanvas (WebGLRenderer)"]
+            Scene["THREE.Scene: ARDY_SharedStage"]
+            Camera["THREE.PerspectiveCamera (FOV 38)"]
+            Controls["OrbitControls (Damping: 0.05, Target: 0, 0.9, 0)"]
+            Grid["World Floor Grid Helper (12m x 12m at y=0.0)"]
+            Lights["Directional & Ambient Lights"]
+            
+            subgraph Rig_Roots ["Side-by-Side Comparison Groups"]
+                SkelRoot["SkeletonRoot (x = -0.75m)"]
+                SkelRenderer["SkeletonRenderer (CoreSkeleton27 Joint Spheres & LineSegments)"]
+                VrmRoot["VRMComparisonRoot (x = +0.75m)"]
+                AvatarRoot["VRM_Avatar_Root (Feet Grounded to y=0)"]
+                VRMModel["vrm.scene (VRM 1.0 / 0.x Humanoid)"]
+            end
+        end
+
+        subgraph HUD_Layer ["Interactive Overlay Layer (Z-Index: 50-100)"]
+            TopBar["Minimal App Header (Title, System Pill, Window Toggles, Frame View)"]
+            
+            subgraph Floating_Windows ["Draggable & Resizable Floating Windows"]
+                WinControls["#winMotionControls (Prompt, Duration, Loop, Rig Toggles, VRM Loader)"]
+                WinTelemetry["#winTelemetry (Truthful Metrics, Latency, FPS, Monotonic Benchmarks)"]
+            end
+
+            TimelineBar["Floating Timeline Scrubber (Bottom Center: Play/Pause, Scrubber, Speed 0.25x-2x)"]
+            DropOverlay["Stage Drag-and-Drop Overlay (Active on .vrm Drag)"]
+        end
+    end
+
+    Canvas --> Scene
+    Camera --> Scene
+    Controls --> Camera
+    Scene --> Grid
+    Scene --> Lights
+    Scene --> SkelRoot
+    Scene --> VrmRoot
+    SkelRoot --> SkelRenderer
+    VrmRoot --> AvatarRoot
+    AvatarRoot --> VRMModel
+
+    WinControls -.->|Pointer Isolation| Canvas
+    WinTelemetry -.->|Pointer Isolation| Canvas

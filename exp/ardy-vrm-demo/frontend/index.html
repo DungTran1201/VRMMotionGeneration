@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Interactive NVIDIA ARDY text-to-motion generation and synchronized VRM humanoid retargeting lab.">
+  <meta name="description" content="Interactive NVIDIA ARDY text-to-motion generation and synchronized VRM humanoid retargeting lab in a full-page 3D workspace.">
   <title>ARDY → VRM Motion Lab</title>
 
   <link rel="stylesheet" href="/static/src/styles/index.css">
@@ -14,13 +14,31 @@
     "imports": {
       "three": "https://esm.sh/three@0.170.0",
       "three/addons/": "https://esm.sh/three@0.170.0/addons/",
-      "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@3.3.4"
+      "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@3.3.4?external=three"
     }
   }
   </script>
 </head>
 <body>
-  <!-- Header Component -->
+  <!-- Fullscreen 3D Stage Canvas Container -->
+  <div id="stageContainer" class="stage-container">
+    <canvas id="stageCanvas" class="stage-canvas"></canvas>
+
+    <!-- Stage-wide Drag & Drop Overlay -->
+    <div id="stageDropOverlay" class="stage-drop-overlay">
+      <div class="drop-modal">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <div class="drop-title">Drop .vrm Avatar to Load</div>
+        <div class="drop-subtitle">Validates VRM 1.0 and VRM 0.x humanoid models with auto-grounding</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimal Top Header Bar -->
   <header class="app-header">
     <div class="brand">
       <div class="brand-icon">
@@ -31,6 +49,38 @@
         <span class="brand-subtitle">CoreSkeleton27 / VRM 1.0</span>
       </div>
     </div>
+
+    <!-- Quick Stage Viewport Controls in Top Bar -->
+    <div class="topbar-actions">
+      <button id="btnToggleControls" class="btn btn-toolbar active" title="Toggle Motion Controls Window">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>Controls</span>
+      </button>
+
+      <button id="btnToggleTelemetry" class="btn btn-toolbar active" title="Toggle Telemetry HUD Window">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Telemetry</span>
+      </button>
+
+      <div class="toolbar-divider"></div>
+
+      <button id="btnFrameBoth" class="btn btn-toolbar" title="Reset View and Frame Both Rigs (Shortcut: R)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+        <span>Frame All</span>
+      </button>
+
+      <button id="btnFrameAvatar" class="btn btn-toolbar" title="Zoom & Center on VRM Avatar (Shortcut: F)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/></svg>
+        <span>Avatar</span>
+      </button>
+
+      <button id="btnFrameSkeleton" class="btn btn-toolbar" title="Zoom & Center on Skeleton">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="15"/><line x1="6" y1="10" x2="18" y2="10"/><line x1="12" y1="15" x2="8" y2="21"/><line x1="12" y1="15" x2="16" y2="21"/></svg>
+        <span>Skeleton</span>
+      </button>
+    </div>
+
+    <!-- System Status & Model Provenance Pill -->
     <div class="header-status">
       <div id="modeBadge" class="mode-badge">
         <span class="pulse-dot"></span>
@@ -40,160 +90,135 @@
     </div>
   </header>
 
-  <!-- Main Container -->
-  <main class="main-container">
-    <!-- Top Control Panel -->
-    <section class="control-panel">
-      <div class="control-row">
-        <div class="prompt-group">
-          <div class="prompt-label">
-            <span>Motion Conditioning Prompt</span>
-            <span style="font-size: 0.72rem; color: var(--accent-cyan);">NVIDIA ARDY Autoregressive Diffusion</span>
-          </div>
-          <textarea
-            id="promptInput"
-            class="prompt-textarea"
-            placeholder="Describe the desired human motion in natural language..."
-            rows="2"
-          ></textarea>
-          <div id="presetsRow" class="presets-row"></div>
-        </div>
+  <!-- Single Authoritative Hidden File Input -->
+  <input type="file" id="vrmFileInput" accept=".vrm" style="display: none;">
 
-        <div class="params-group">
-          <div class="param-item">
-            <label for="durationSlider">Duration (s)</label>
+  <!-- Floating Customizable Window 1: Motion Controls -->
+  <div id="winMotionControls" class="floating-window" style="width: 380px;">
+    <div class="window-header">
+      <div class="window-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Motion Controls</span>
+      </div>
+      <div class="window-actions">
+        <label class="window-opacity-control" title="Adjust window transparency">
+          <span>Opacity</span>
+          <input type="range" class="window-opacity-slider" min="0.4" max="1.0" step="0.05" value="0.9">
+        </label>
+        <button class="btn-window-collapse" title="Collapse window">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <button class="btn-window-close" title="Close window">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="window-body">
+      <!-- Conditioning Prompt -->
+      <div class="control-section">
+        <div class="section-label">
+          <span>Conditioning Prompt</span>
+          <span class="section-sublabel">NVIDIA ARDY Autoregressive Diffusion</span>
+        </div>
+        <textarea
+          id="promptInput"
+          class="prompt-textarea"
+          placeholder="Describe human motion (e.g. A person waves both hands)..."
+          rows="2"
+        ></textarea>
+        <div id="presetsRow" class="presets-row"></div>
+      </div>
+
+      <!-- Parameters & Toggles -->
+      <div class="control-section">
+        <div class="section-label">Parameters & Rigs</div>
+        <div class="params-grid">
+          <div class="param-row">
+            <label for="durationSlider">Duration</label>
             <div class="slider-container">
-              <input
-                type="range"
-                id="durationSlider"
-                class="range-slider"
-                min="1.0"
-                max="6.0"
-                step="0.5"
-                value="3.0"
-              >
+              <input type="range" id="durationSlider" class="range-slider" min="1.0" max="6.0" step="0.5" value="3.0">
               <span id="durationVal" class="slider-val">3.0s (60f)</span>
             </div>
           </div>
 
-          <div class="param-item" style="display: none;">
-            <label for="seedInput">Seed</label>
-            <input type="number" id="seedInput" style="width: 70px; padding: 4px;" placeholder="Random">
-          </div>
-
-          <label class="checkbox-label">
-            <input type="checkbox" id="loopToggle" checked>
-            <span>Loop Playback</span>
-          </label>
-
-          <label class="checkbox-label">
-            <input type="checkbox" id="showSkeletonToggle" checked>
-            <span>Show Skeleton</span>
-          </label>
-
-          <div class="param-item">
-            <label>&nbsp;</label>
-            <div class="btn btn-secondary vrm-upload-btn" title="Upload local .vrm avatar to inspect retargeted motion">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span>Load VRM</span>
-              <input type="file" id="vrmFileInput" accept=".vrm">
-            </div>
-          </div>
-
-          <div class="param-item">
-            <label>&nbsp;</label>
-            <button id="btnGenerate" class="btn btn-primary">
-              <span>Generate Motion</span>
-            </button>
-          </div>
-
-          <div class="param-item">
-            <label>&nbsp;</label>
-            <button id="btnCancel" class="btn btn-danger" disabled>
-              <span>Stop</span>
-            </button>
+          <div class="toggles-row">
+            <label class="checkbox-label" title="Continuously loop motion sequence">
+              <input type="checkbox" id="loopToggle" checked>
+              <span>Loop Playback</span>
+            </label>
+            <label class="checkbox-label" title="Show/hide CoreSkeleton27 joint lines">
+              <input type="checkbox" id="showSkeletonToggle" checked>
+              <span>Skeleton</span>
+            </label>
+            <label class="checkbox-label" title="Show/hide retargeted VRM avatar">
+              <input type="checkbox" id="showVrmToggle" checked>
+              <span>Avatar</span>
+            </label>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- Dual Viewport Comparison Stage -->
-    <section class="viewports-stage">
-      <!-- Left Viewport: Motion Skeleton -->
-      <div id="skeletonPanel" class="viewport-panel">
-        <div class="viewport-header">
-          <div class="viewport-title">
-            <span>Motion Skeleton</span>
-            <span class="tag">ARDY CoreSkeleton27</span>
-          </div>
-          <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent-cyan);">27 Joints / 20 FPS</div>
+      <!-- VRM Avatar Management -->
+      <div class="control-section">
+        <div class="section-label">
+          <span>VRM Avatar</span>
+          <span id="vrmInfoBadge" class="vrm-info-badge">No Avatar</span>
         </div>
-        <div class="viewport-canvas-container">
-          <canvas id="skeletonCanvas" class="viewport-canvas"></canvas>
-          <div class="viewport-overlay-controls">
-            <button id="btnResetCamera" class="icon-btn" title="Reset Viewport Cameras">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+        <div class="vrm-manager-box">
+          <div class="vrm-status-line">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/></svg>
+            <span id="vrmStatusText" class="vrm-status-text">No VRM avatar loaded (drop .vrm file or click button)</span>
+          </div>
+          <div class="vrm-actions-row">
+            <button id="btnLoadVrm" class="btn btn-secondary btn-sm" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Load / Replace VRM</span>
+            </button>
+            <button id="btnRemoveVrm" class="btn btn-danger btn-sm" type="button" style="display: none;">
+              <span>Remove</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Right Viewport: VRM Avatar -->
-      <div id="vrmPanel" class="viewport-panel">
-        <div class="viewport-header">
-          <div class="viewport-title">
-            <span>VRM Avatar</span>
-            <span class="tag">VRM 1.0 Humanoid</span>
-          </div>
-          <div id="vrmInfoBadge" class="vrm-info-badge">No Avatar Loaded</div>
-        </div>
-        <div class="viewport-canvas-container">
-          <canvas id="vrmCanvas" class="viewport-canvas"></canvas>
-          <!-- Empty State Overlay when no VRM avatar is loaded -->
-          <div id="vrmEmptyState" class="vrm-empty-state">
-            <div class="empty-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/></svg>
-            </div>
-            <div class="empty-title">No VRM Avatar Loaded</div>
-            <div class="empty-desc">
-              Drop any <code>.vrm</code> avatar file here or click "Load VRM" above to view synchronized humanoid retargeting alongside the skeleton.
-            </div>
-            <div class="btn btn-secondary vrm-upload-btn">
-              <span>Select .vrm File</span>
-              <input type="file" onchange="document.getElementById('vrmFileInput').files = this.files; document.getElementById('vrmFileInput').dispatchEvent(new Event('change'))" accept=".vrm">
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Synchronized Timeline Scrubber -->
-    <section class="timeline-bar">
-      <div class="timeline-controls">
-        <button id="btnRestart" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      <!-- Action Buttons -->
+      <div class="actions-footer">
+        <button id="btnGenerate" class="btn btn-primary" style="flex: 2;">
+          <span>Generate Motion</span>
         </button>
-        <button id="btnPlayPause" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.8rem; min-width: 72px;">
-          Pause
+        <button id="btnCancel" class="btn btn-danger" style="flex: 1;" disabled>
+          <span>Stop</span>
         </button>
       </div>
+    </div>
 
-      <div class="timeline-slider-wrap">
-        <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="60" value="0">
-        <div class="timeline-info">
-          <span id="timelineLabel">Frame 1 / 60 (0.00s / 3.00s)</span>
-          <span>Timeline Synchronized</span>
-        </div>
+    <!-- Resize Handle -->
+    <div class="window-resize-handle" title="Drag to resize window"></div>
+  </div>
+
+  <!-- Floating Customizable Window 2: Telemetry HUD -->
+  <div id="winTelemetry" class="floating-window" style="width: 320px;">
+    <div class="window-header">
+      <div class="window-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Telemetry & Benchmarks</span>
       </div>
-    </section>
-
-    <!-- Telemetry HUD Panel -->
-    <section class="telemetry-panel">
-      <div class="telemetry-title">
-        <span>Execution Telemetry & Performance Metrics</span>
-        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: normal;">Monotonic Benchmarking Clock</span>
+      <div class="window-actions">
+        <label class="window-opacity-control" title="Adjust window transparency">
+          <span>Opacity</span>
+          <input type="range" class="window-opacity-slider" min="0.4" max="1.0" step="0.05" value="0.9">
+        </label>
+        <button class="btn-window-collapse" title="Collapse window">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <button class="btn-window-close" title="Close window">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
+    </div>
 
+    <div class="window-body">
       <div class="telemetry-grid">
         <div class="telemetry-cell">
           <span class="metric-label">Status</span>
@@ -207,43 +232,78 @@
 
         <div class="telemetry-cell">
           <span class="metric-label">Duration (Req / Act)</span>
-          <span id="metricDuration" class="metric-value">3.00s / 3.00s (60f)</span>
+          <span id="metricDuration" class="metric-value">—</span>
         </div>
 
         <div class="telemetry-cell accent">
           <span class="metric-label">Inference Time</span>
-          <span id="metricGenTime" class="metric-value">1,625 ms</span>
+          <span id="metricGenTime" class="metric-value">—</span>
         </div>
 
         <div class="telemetry-cell accent">
           <span class="metric-label">Effective Gen FPS</span>
-          <span id="metricEffectiveFps" class="metric-value">36.9 FPS</span>
+          <span id="metricEffectiveFps" class="metric-value">—</span>
         </div>
 
         <div class="telemetry-cell highlight">
           <span class="metric-label">Real-Time Factor (RTF)</span>
-          <span id="metricRtf" class="metric-value">0.54 (&lt;1.0x Realtime)</span>
+          <span id="metricRtf" class="metric-value">—</span>
         </div>
 
         <div class="telemetry-cell">
           <span class="metric-label">End-to-End Latency</span>
-          <span id="metricLatency" class="metric-value">1,635 ms</span>
+          <span id="metricLatency" class="metric-value">—</span>
         </div>
 
         <div class="telemetry-cell">
           <span class="metric-label">Peak VRAM</span>
-          <span id="metricVram" class="metric-value">885.4 MB</span>
+          <span id="metricVram" class="metric-value">N/A</span>
         </div>
 
         <div class="telemetry-cell">
           <span class="metric-label">Renderer FPS</span>
-          <span id="metricRenderFps" class="metric-value">60 FPS</span>
+          <span id="metricRenderFps" class="metric-value">—</span>
         </div>
       </div>
-    </section>
-  </main>
+      <div class="telemetry-provenance-note">
+        Measured with high-resolution clocks. Telemetry fields show '—' until genuine benchmarks arrive.
+      </div>
+    </div>
 
-  <!-- Error / Notification Toast Banner -->
+    <div class="window-resize-handle" title="Drag to resize window"></div>
+  </div>
+
+  <!-- Synchronized Floating Bottom Timeline Bar -->
+  <section class="floating-timeline-bar">
+    <div class="timeline-controls">
+      <button id="btnRestart" class="btn btn-secondary icon-btn" title="Restart to Frame 1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button id="btnPlayPause" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; min-width: 68px;">
+        Pause
+      </button>
+    </div>
+
+    <div class="timeline-slider-wrap">
+      <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="60" value="0">
+      <div class="timeline-info">
+        <span id="timelineLabel">Frame 1 / 60 (0.00s / 3.00s)</span>
+        <span class="tag-sync">Timeline Synchronized (Core27 + VRM)</span>
+      </div>
+    </div>
+
+    <div class="timeline-speed-wrap">
+      <select id="speedSelect" class="speed-select" title="Playback speed">
+        <option value="0.25">0.25x</option>
+        <option value="0.5">0.5x</option>
+        <option value="1.0" selected>1.0x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2.0">2.0x</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Notification Toast Banner -->
   <div id="toastBanner" class="toast-banner"></div>
 
   <!-- Entry Script -->

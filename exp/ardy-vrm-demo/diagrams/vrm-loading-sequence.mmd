@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    actor User as User / Animator
+    participant UI as Fullscreen Stage HUD
+    participant Manager as VrmManager
+    participant Loader as GLTFLoader + VRMLoaderPlugin
+    participant Three as Three.js Scene
+
+    User->>UI: Selects .vrm file (Click Picker or Drag-and-Drop)
+    UI->>UI: Show parsing badge & progress overlay
+    UI->>Manager: loadFromFile(file, onProgress)
+    
+    Manager->>Manager: Validate file extension (.vrm) & size (<100MB)
+    alt Invalid Extension or Empty File
+        Manager-->>UI: Reject Promise with ValidationError
+        UI->>UI: Restore UI state, display Toast notification
+    end
+
+    Manager->>Manager: Create ObjectURL & increment LoadToken
+    Manager->>Loader: loadAsync(objectUrl)
+    Loader-->>Manager: Return GLTF object
+
+    alt Non-VRM GLTF / Missing Metadata
+        Manager-->>UI: Reject Promise ("VRM metadata not detected")
+        UI->>UI: Display actionable error toast (not generic crash)
+    end
+
+    Manager->>Manager: disposeCurrent() (Free previous meshes & textures)
+    Manager->>Three: avatarRoot.add(vrm.scene)
+
+    alt VRM Version is 0.x
+        Manager->>Manager: VRMUtils.rotateVRM0(vrm) (Align +Z to -Z)
+    else VRM Version is 1.0
+        Manager->>Manager: Maintain canonical -Z forward orientation
+    end
+
+    Manager->>Three: Update matrix world & compute Box3
+    Manager->>Three: Set position.y = -box.min.y (Ground feet to y=0)
+    Manager->>Manager: Cache normalized bone nodes & hips node
+    Manager-->>UI: Resolve Promise { vrm, metadata, diagnostics }
+
+    UI->>UI: Update avatar status badge, enable Remove button
+    UI->>Manager: Re-bind current motion data & update frame pose
