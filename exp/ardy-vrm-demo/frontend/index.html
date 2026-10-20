@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive NVIDIA ARDY text-to-motion generation and synchronized VRM humanoid retargeting lab.">
+  <title>ARDY → VRM Motion Lab</title>
+
+  <link rel="stylesheet" href="/static/src/styles/index.css">
+
+  <!-- ESM Import Map for Three.js and Pixiv Three-VRM -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.170.0",
+      "three/addons/": "https://esm.sh/three@0.170.0/addons/",
+      "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@3.3.4"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- Header Component -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="brand-title">
+        ARDY → VRM Motion Lab
+        <span class="brand-subtitle">CoreSkeleton27 / VRM 1.0</span>
+      </div>
+    </div>
+    <div class="header-status">
+      <div id="modeBadge" class="mode-badge">
+        <span class="pulse-dot"></span>
+        <span>INITIALIZING</span>
+      </div>
+      <div id="systemPill" class="system-pill">Probing GPU...</div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    <!-- Top Control Panel -->
+    <section class="control-panel">
+      <div class="control-row">
+        <div class="prompt-group">
+          <div class="prompt-label">
+            <span>Motion Conditioning Prompt</span>
+            <span style="font-size: 0.72rem; color: var(--accent-cyan);">NVIDIA ARDY Autoregressive Diffusion</span>
+          </div>
+          <textarea
+            id="promptInput"
+            class="prompt-textarea"
+            placeholder="Describe the desired human motion in natural language..."
+            rows="2"
+          ></textarea>
+          <div id="presetsRow" class="presets-row"></div>
+        </div>
+
+        <div class="params-group">
+          <div class="param-item">
+            <label for="durationSlider">Duration (s)</label>
+            <div class="slider-container">
+              <input
+                type="range"
+                id="durationSlider"
+                class="range-slider"
+                min="1.0"
+                max="6.0"
+                step="0.5"
+                value="3.0"
+              >
+              <span id="durationVal" class="slider-val">3.0s (60f)</span>
+            </div>
+          </div>
+
+          <div class="param-item" style="display: none;">
+            <label for="seedInput">Seed</label>
+            <input type="number" id="seedInput" style="width: 70px; padding: 4px;" placeholder="Random">
+          </div>
+
+          <label class="checkbox-label">
+            <input type="checkbox" id="loopToggle" checked>
+            <span>Loop Playback</span>
+          </label>
+
+          <label class="checkbox-label">
+            <input type="checkbox" id="showSkeletonToggle" checked>
+            <span>Show Skeleton</span>
+          </label>
+
+          <div class="param-item">
+            <label>&nbsp;</label>
+            <div class="btn btn-secondary vrm-upload-btn" title="Upload local .vrm avatar to inspect retargeted motion">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Load VRM</span>
+              <input type="file" id="vrmFileInput" accept=".vrm">
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>&nbsp;</label>
+            <button id="btnGenerate" class="btn btn-primary">
+              <span>Generate Motion</span>
+            </button>
+          </div>
+
+          <div class="param-item">
+            <label>&nbsp;</label>
+            <button id="btnCancel" class="btn btn-danger" disabled>
+              <span>Stop</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dual Viewport Comparison Stage -->
+    <section class="viewports-stage">
+      <!-- Left Viewport: Motion Skeleton -->
+      <div id="skeletonPanel" class="viewport-panel">
+        <div class="viewport-header">
+          <div class="viewport-title">
+            <span>Motion Skeleton</span>
+            <span class="tag">ARDY CoreSkeleton27</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent-cyan);">27 Joints / 20 FPS</div>
+        </div>
+        <div class="viewport-canvas-container">
+          <canvas id="skeletonCanvas" class="viewport-canvas"></canvas>
+          <div class="viewport-overlay-controls">
+            <button id="btnResetCamera" class="icon-btn" title="Reset Viewport Cameras">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Viewport: VRM Avatar -->
+      <div id="vrmPanel" class="viewport-panel">
+        <div class="viewport-header">
+          <div class="viewport-title">
+            <span>VRM Avatar</span>
+            <span class="tag">VRM 1.0 Humanoid</span>
+          </div>
+          <div id="vrmInfoBadge" class="vrm-info-badge">No Avatar Loaded</div>
+        </div>
+        <div class="viewport-canvas-container">
+          <canvas id="vrmCanvas" class="viewport-canvas"></canvas>
+          <!-- Empty State Overlay when no VRM avatar is loaded -->
+          <div id="vrmEmptyState" class="vrm-empty-state">
+            <div class="empty-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/></svg>
+            </div>
+            <div class="empty-title">No VRM Avatar Loaded</div>
+            <div class="empty-desc">
+              Drop any <code>.vrm</code> avatar file here or click "Load VRM" above to view synchronized humanoid retargeting alongside the skeleton.
+            </div>
+            <div class="btn btn-secondary vrm-upload-btn">
+              <span>Select .vrm File</span>
+              <input type="file" onchange="document.getElementById('vrmFileInput').files = this.files; document.getElementById('vrmFileInput').dispatchEvent(new Event('change'))" accept=".vrm">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Synchronized Timeline Scrubber -->
+    <section class="timeline-bar">
+      <div class="timeline-controls">
+        <button id="btnRestart" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <button id="btnPlayPause" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.8rem; min-width: 72px;">
+          Pause
+        </button>
+      </div>
+
+      <div class="timeline-slider-wrap">
+        <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="60" value="0">
+        <div class="timeline-info">
+          <span id="timelineLabel">Frame 1 / 60 (0.00s / 3.00s)</span>
+          <span>Timeline Synchronized</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Telemetry HUD Panel -->
+    <section class="telemetry-panel">
+      <div class="telemetry-title">
+        <span>Execution Telemetry & Performance Metrics</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: normal;">Monotonic Benchmarking Clock</span>
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="telemetry-cell">
+          <span class="metric-label">Status</span>
+          <span id="metricStatus" class="metric-value">Idle</span>
+        </div>
+
+        <div class="telemetry-cell">
+          <span class="metric-label">Model Checkpoint</span>
+          <span id="metricModel" class="metric-value">ARDY-Core-RP-20FPS-Horizon8</span>
+        </div>
+
+        <div class="telemetry-cell">
+          <span class="metric-label">Duration (Req / Act)</span>
+          <span id="metricDuration" class="metric-value">3.00s / 3.00s (60f)</span>
+        </div>
+
+        <div class="telemetry-cell accent">
+          <span class="metric-label">Inference Time</span>
+          <span id="metricGenTime" class="metric-value">1,625 ms</span>
+        </div>
+
+        <div class="telemetry-cell accent">
+          <span class="metric-label">Effective Gen FPS</span>
+          <span id="metricEffectiveFps" class="metric-value">36.9 FPS</span>
+        </div>
+
+        <div class="telemetry-cell highlight">
+          <span class="metric-label">Real-Time Factor (RTF)</span>
+          <span id="metricRtf" class="metric-value">0.54 (&lt;1.0x Realtime)</span>
+        </div>
+
+        <div class="telemetry-cell">
+          <span class="metric-label">End-to-End Latency</span>
+          <span id="metricLatency" class="metric-value">1,635 ms</span>
+        </div>
+
+        <div class="telemetry-cell">
+          <span class="metric-label">Peak VRAM</span>
+          <span id="metricVram" class="metric-value">885.4 MB</span>
+        </div>
+
+        <div class="telemetry-cell">
+          <span class="metric-label">Renderer FPS</span>
+          <span id="metricRenderFps" class="metric-value">60 FPS</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Error / Notification Toast Banner -->
+  <div id="toastBanner" class="toast-banner"></div>
+
+  <!-- Entry Script -->
+  <script type="module" src="/static/src/app/main.js"></script>
+</body>
+</html>

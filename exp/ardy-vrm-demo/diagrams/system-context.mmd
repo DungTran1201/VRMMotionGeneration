@@ -1,0 +1,43 @@
+graph TD
+    User["End User (Browser Client)"]
+
+    subgraph EXP["Isolated Workspace (exp/ardy-vrm-demo/)"]
+        subgraph Frontend["Frontend Client (Single Page Application)"]
+            UI["Web UI Controls & Timeline"]
+            SkelView["Left Viewport: Motion Skeleton (Three.js)"]
+            VRMView["Right Viewport: VRM Avatar (@pixiv/three-vrm)"]
+            TeleHUD["Telemetry HUD & Realtime Clock"]
+        end
+
+        subgraph Backend["FastAPI Backend Server (:8000)"]
+            API["API Endpoints & Job Queue"]
+            WS["WebSocket Event Broadcaster"]
+        end
+
+        subgraph Engine["ARDY Runtime Adapter"]
+            Encoder["Decoupled Text Encoder (4096-dim)"]
+            Denoiser["ARDY Flow Matching Denoiser (GPU)"]
+            Tokenizer["ARDY Latent Tokenizer (GPU)"]
+        end
+
+        subgraph Adapter["Motion Kinematics & Retargeting"]
+            FK["Forward Kinematics (CoreSkeleton27)"]
+            Retarget["Humanoid Bone Retargeter (VRM 1.0)"]
+            Validator["Quaternion Continuity & E2E Validator"]
+        end
+    end
+
+    User -->|Interacts / Enters Prompt| UI
+    User -->|Loads Local .vrm File| VRMView
+    UI -->|POST /api/generations| API
+    API -->|Job Stream Events| WS
+    WS -->|Progress / Status Updates| UI
+    API -->|Conditioning| Encoder
+    Encoder -->|Prompt Embedding [B, 32, 4096]| Denoiser
+    Denoiser -->|Latent Samples| Tokenizer
+    Tokenizer -->|Rotations [T, 27, 3, 3] + Root [T, 3]| FK
+    FK -->|Joint Positions [T, 27, 3]| SkelView
+    Tokenizer --> Retarget
+    Retarget --> Validator
+    Validator -->|Normalized Quaternions + Root| VRMView
+    API -->|Inference Latency & VRAM| TeleHUD

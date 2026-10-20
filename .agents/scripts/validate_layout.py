@@ -104,8 +104,12 @@ def main() -> int:
     # Verify no accidental checkpoints or large binaries committed in scaffold
     forbidden_extensions = {".ckpt", ".pt", ".pth", ".safetensors", ".onnx", ".bin"}
     for root, dirs, files in os.walk(repo_root):
-        # Ignore .git directory
-        if ".git" in Path(root).parts:
+        parts = Path(root).parts
+        # Ignore .git, virtual environments, caches
+        if any(part in {".git", ".venv", "venv", "__pycache__", "node_modules", ".pytest_cache"} for part in parts):
+            continue
+        # Isolated experiment checkpoints are managed within exp/ and gitignored
+        if "exp" in parts and "checkpoints" in parts:
             continue
         for file in files:
             ext = Path(file).suffix.lower()

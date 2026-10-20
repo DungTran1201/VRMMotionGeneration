@@ -1,0 +1,73 @@
+graph LR
+    subgraph ARDY["ARDY CoreSkeleton27"]
+        Hips["0: Hips (Root)"]
+        Spine["1: Spine"]
+        Spine2["3: Spine2"]
+        Spine3["4: Spine3"]
+        Neck["5: Neck"]
+        Head["6: Head"]
+        LSh["13: LeftShoulder"]
+        LArm["14: LeftArm"]
+        LFArm["15: LeftForeArm"]
+        LHand["16: LeftHand"]
+        RSh["7: RightShoulder"]
+        RArm["8: RightArm"]
+        RFArm["9: RightForeArm"]
+        RHand["10: RightHand"]
+        LULeg["23: LeftUpLeg"]
+        LLeg["24: LeftLeg"]
+        LFoot["25: LeftFoot"]
+        LToe["26: LeftToeBase"]
+        RULeg["19: RightUpLeg"]
+        RLeg["20: RightLeg"]
+        RFoot["21: RightFoot"]
+        RToe["22: RightToeBase"]
+    end
+
+    subgraph VRM["VRM 1.0 Humanoid Bones"]
+        vHips["hips (Pos + Quat)"]
+        vSpine["spine"]
+        vChest["chest"]
+        vUChest["upperChest"]
+        vNeck["neck"]
+        vHead["head"]
+        vLSh["leftShoulder"]
+        vLArm["leftUpperArm"]
+        vLFArm["leftLowerArm"]
+        vLHand["leftHand"]
+        vRSh["rightShoulder"]
+        vRArm["rightUpperArm"]
+        vRFArm["rightLowerArm"]
+        vRHand["rightHand"]
+        vLULeg["leftUpperLeg"]
+        vLLeg["leftLowerLeg"]
+        vLFoot["leftFoot"]
+        vLToe["leftToes"]
+        vRULeg["rightUpperLeg"]
+        vRLeg["rightLowerLeg"]
+        vRFoot["rightFoot"]
+        vRToe["rightToes"]
+    end
+
+    Hips -->|Pos + Quat| vHips
+    Spine -->|Quat| vSpine
+    Spine2 -->|Quat| vChest
+    Spine3 -->|Quat| vUChest
+    Neck -->|Quat| vNeck
+    Head -->|Quat| vHead
+    LSh -->|Quat| vLSh
+    LArm -->|Quat| vLArm
+    LFArm -->|Quat| vLFArm
+    LHand -->|Quat| vLHand
+    RSh -->|Quat| vRSh
+    RArm -->|Quat| vRArm
+    RFArm -->|Quat| vRFArm
+    RHand -->|Quat| vRHand
+    LULeg -->|Quat| vLULeg
+    LLeg -->|Quat| vLLeg
+    LFoot -->|Quat| vLFoot
+    LToe -->|Quat| vLToe
+    RULeg -->|Quat| vRULeg
+    RLeg -->|Quat| vRLeg
+    RFoot -->|Quat| vRFoot
+    RToe -->|Quat| vRToe
