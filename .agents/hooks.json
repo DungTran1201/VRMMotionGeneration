@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Lifecycle hooks configuration for VRMMotionGeneration agent harness. Disabled by default until runtime support is verified.",
+  "enabled": false,
+  "hooks": {
+    "pre_commit": {
+      "enabled": false,
+      "description": "Checks code formatting, prevents large binary commits, and validates layout.",
+      "command": "powershell -ExecutionPolicy Bypass -File .agents/hooks/pre_commit.ps1"
+    },
+    "quality_gate": {
+      "enabled": false,
+      "description": "Runs layout validation and unit test suites.",
+      "command": "powershell -ExecutionPolicy Bypass -File .agents/hooks/run_quality_gates.ps1"
+    }
+  }
+}

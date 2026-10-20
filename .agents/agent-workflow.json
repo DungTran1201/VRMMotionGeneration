@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "description": "Host-neutral lifecycle suggestions; map these commands to the selected agent runtime rather than assuming automatic hook support.",
+  "on_task_start": ["Read AGENTS.md", "Read .agents/README.md", "Select a task skill", "Inspect git status and affected source/tests"],
+  "after_changes": ["Run relevant unit tests", "Run frontend build for frontend changes", "Run python .agents/hooks/validate_agent_assets.py", "Run git diff --check"],
+  "before_finish": ["Verify acceptance criteria", "Report exact commands/results", "List unverified items and limitations", "Update docs if contracts/runtime changed"],
+  "windows_quality_command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/hooks/run_quality_gates.ps1",
+  "agent_asset_validation_command": "python .agents/hooks/validate_agent_assets.py",
+  "git_hook_installer": ".agents/hooks/install-git-hooks.ps1"
+}

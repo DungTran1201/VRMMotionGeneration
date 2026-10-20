@@ -1,0 +1,15 @@
+# Canonical Model Template
+# Defines structured machine-readable specifications.
+
+metadata:
+  model_id: "MOD-[CATEGORY]-[NAME]"
+  version: "1.0.0"
+  status: "DRAFT" # DRAFT | REVIEW | APPROVED | DEPRECATED
+  source_documents:
+    - "docs/..."
+
+specification:
+  name: "ModelName"
+  description: "Formal specification description"
+  entities: []
+  rules: []

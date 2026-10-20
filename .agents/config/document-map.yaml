@@ -1,0 +1,46 @@
+# Document Map for VRMMotionGeneration
+# Maps human-readable doc directories to lifecycle purpose and owner role.
+
+document_map:
+  "00-discovery":
+    purpose: "Exploratory audits, baselines, reference inspections, and technology evaluations."
+    owner_role: "product-analyst"
+  "01-planning":
+    purpose: "Roadmaps, milestone plans, sprint backlogs, and migration strategies."
+    owner_role: "architect"
+  "02-requirements":
+    purpose: "Functional and non-functional requirements specifications."
+    owner_role: "product-analyst"
+  "03-business-process":
+    purpose: "High-level business workflows, avatar lifecycle, and user journey definitions."
+    owner_role: "product-analyst"
+  "04-use-cases":
+    purpose: "Formal use case specifications and scenario walk-throughs."
+    owner_role: "product-analyst"
+  "05-architecture":
+    purpose: "System architecture descriptions, component boundaries, and ADRs."
+    owner_role: "architect"
+  "06-domain":
+    purpose: "Humanoid kinematics, skeletal hierarchies, motion representations, and avatar metadata."
+    owner_role: "architect"
+  "07-api":
+    purpose: "API contracts, REST endpoints, WebSocket streaming protocols, and error models."
+    owner_role: "backend-engineer"
+  "08-behavior":
+    purpose: "System behavior, state transition semantics, and streaming lifecycle."
+    owner_role: "backend-engineer"
+  "09-security":
+    purpose: "Threat modeling, asset validation rules, authentication, and security governance."
+    owner_role: "security-reviewer"
+  "10-ux":
+    purpose: "User experience guidelines, 3D viewport controls, layout, and UI components."
+    owner_role: "frontend-engineer"
+  "11-testing":
+    purpose: "Test strategy, test plans, synthetic fixtures, and QA benchmarks."
+    owner_role: "qa-reviewer"
+  "12-operations":
+    purpose: "Deployment architecture, containerization, environment runbooks, and monitoring."
+    owner_role: "devops-engineer"
+  "13-governance":
+    purpose: "Release readiness gates, licensing compliance, and experiment promotion rules."
+    owner_role: "architect"

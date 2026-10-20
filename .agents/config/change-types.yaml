@@ -1,0 +1,53 @@
+# Change Classification Schema for VRMMotionGeneration
+# Guides artifact selection and review gates based on change scope.
+
+change_types:
+  ARCHITECTURE_CHANGE:
+    description: "Modifications to system structure, cross-boundary contracts, or component decoupling."
+    required_artifacts:
+      - "docs/05-architecture/"
+      - "models/architecture/"
+      - "diagrams/architecture/"
+    approval_required: true
+
+  REQUIREMENTS_OR_PROCESS:
+    description: "Changes to product requirements, business process, or user capabilities."
+    required_artifacts:
+      - "docs/02-requirements/"
+      - "docs/03-business-process/"
+      - "models/requirements/"
+      - "models/process/"
+    approval_required: true
+
+  API_OR_CONTRACT_CHANGE:
+    description: "Modifications to client-server API, schemas, or motion contracts."
+    required_artifacts:
+      - "docs/07-api/"
+      - "models/api/"
+      - "diagrams/sequence/"
+      - "backend/tests/"
+      - "frontend/tests/"
+    approval_required: true
+
+  UI_OR_UX_CHANGE:
+    description: "Visual or interaction changes to client web application."
+    required_artifacts:
+      - "docs/10-ux/"
+      - "models/ux/"
+      - "diagrams/ux/"
+      - "frontend/tests/"
+    approval_required: false
+
+  EXPERIMENT_ONLY:
+    description: "Standalone exploratory work conducted inside exp/ directory."
+    required_artifacts:
+      - "exp/reports/"
+    approval_required: false
+
+  INFRA_OR_DEVOPS:
+    description: "CI/CD, deployment configurations, scripts, or observability."
+    required_artifacts:
+      - "docs/12-operations/"
+      - "models/deployment/"
+      - "infra/"
+    approval_required: true

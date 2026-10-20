@@ -1,136 +1,96 @@
-# MotionBricks-to-VRM Integration Engine
+# VRMMotionGeneration
 
-A modular, real-time proof-of-concept pipeline bridging NVIDIA's **MotionBricks** generative motion framework with the **VRM (Virtual Reality Model)** 3D humanoid standard via the **`CanonicalHumanoidMotion/v1`** schema.
+An engineering workspace for a web application dedicated to humanoid motion generation, kinematic retargeting, and real-time 3D avatar rendering (supporting VRM and rigged glTF/GLB models).
 
----
-
-## Highlights
-
-- **Model-Independent Architecture:** Decouples AI motion generation from WebGL avatar rendering using the validated `CanonicalHumanoidMotion/v1` specification.
-- **Two Distinct Operating Modes:**
-  - **Mode A (Fixture / Offline Demo):** 100% functional without GPU, PyTorch, or pretrained weights. Includes a deterministic walking locomotion cycle.
-  - **Mode B (Real MotionBricks Inference):** Integrates directly with the genuine MotionBricks checkpoint pipeline when weights are pulled.
-- **G1-to-Humanoid Retargeting Engine:** Converts the 34-joint Unitree G1 robot hierarchy (serial pitch $\rightarrow$ roll $\rightarrow$ yaw hinge chains) into standard 3-DOF spherical humanoid bones.
-- **Modern Three.js + `@pixiv/three-vrm` Web Viewer:** High-aesthetic dark-mode technical UI with orbit controls, procedural mannequin fallback, custom VRM file loading, bone inspection, and timeline scrubber.
-- **Zero-Modification Policy:** Treats upstream `NVlabs/GR00T-WholeBodyControl` code as read-only reference with isolated adapters.
+> **Important Notice: Structure & Governance Baseline**  
+> This repository is currently in a scaffold and governance baseline state. Application source code, production technology stacks, and end-to-end capabilities are **not yet implemented or chosen**. Implementation will proceed following discovery, formal Architecture Decision Records (ADRs), and canonical modeling.
 
 ---
 
-## Quick Start
+## Repository Layout
 
-### 1. Mode A: Instant Offline Demo (Browser Only)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://127.0.0.1:5173/` in your browser. The procedural humanoid mannequin immediately begins walking using the pre-validated Mode A locomotion fixture. You can also drag and drop or upload your own `.vrm` avatar.
-
-### 2. Backend Service (FastAPI & Streaming WebSocket)
-
-```powershell
-# From repository root
-$env:PYTHONPATH="backend/src"
-py -3.12 -m pip install -e backend/
-py -3.12 scripts/validate_environment.py
-py -3.12 -m uvicorn motionbricks_vrm.app:app --host 127.0.0.1 --port 8000
-```
-
-### 3. Running Automated Tests
-
-```powershell
-# Run backend pytest suite (24 tests)
-$env:PYTHONPATH="backend/src"
-py -3.12 -m pytest backend/tests/ -v
-
-# Run frontend unit tests (4 tests)
-cd frontend
-npm test
-
-# Run frontend build verification
-npm run build
-```
-
----
-
-## Project Structure
-
-```
+```text
 VRMMotionGeneration/
-├── README.md                           # Main Project Overview
-├── INSPECTION_REPORT.md                # Initial Environment & Upstream Inspection
-├── configs/
-│   ├── canonical_motion.yaml           # Canonical schema settings & bone requirements
-│   └── retarget_profiles/
-│       └── g1_to_humanoid.example.yaml # G1-to-Humanoid bone mapping profile
-├── fixtures/
-│   ├── README.md                       # Fixture documentation
-│   └── sample_motion.json              # Validated deterministic walking locomotion fixture
-├── scripts/
-│   ├── generate_fixture.py             # Deterministic fixture generator
-│   ├── validate_environment.py         # Hardware, Python & checkpoint readiness checker
-│   └── validate_motion.py              # CLI validator for CanonicalHumanoidMotion documents
-├── backend/
-│   ├── pyproject.toml                  # Backend package configuration
-│   ├── src/motionbricks_vrm/
-│   │   ├── schemas/                    # Pydantic v2 CanonicalHumanoidMotion models
-│   │   ├── reconstruction/             # Math utilities, G1Skeleton34 model, 6D-to-matrix
-│   │   ├── retargeting/                # G1ToHumanoidRetargeter engine
-│   │   ├── source_adapter/             # MotionBricks inference lifecycle manager
-│   │   ├── streaming/                  # WebSocket session frame streamer
-│   │   └── app.py                      # FastAPI REST and WebSocket service
-│   └── tests/                          # 24 automated unit tests
-├── frontend/
-│   ├── package.json                    # Three.js, @pixiv/three-vrm, Vite
-│   ├── index.html                      # Technical UI layout & canvas
-│   ├── public/sample_motion.json       # Static offline fixture asset
-│   ├── src/
-│   │   ├── avatar/                     # AvatarManager (VRM + Procedural Mannequin)
-│   │   ├── animation/                  # AnimationPlayer (Slerp interpolation, clock)
-│   │   ├── motion/                     # In-browser schema validator
-│   │   ├── transport/                  # REST & WebSocket ApiClient
-│   │   ├── ui/                         # HUD components, checklists, toast alerts
-│   │   └── main.js                     # Application entry point
-│   └── tests/                          # Frontend math & schema tests
-└── docs/
-    ├── 01-requirements.md              # Functional & non-functional requirements
-    ├── 02-source-analysis.md           # Upstream MotionBricks code analysis
-    ├── 03-system-architecture.md       # Component architecture & principles
-    ├── 04-motion-representation.md     # CanonicalHumanoidMotion/v1 specification
-    ├── 05-retargeting-design.md        # Kinematic composition & mapping table
-    ├── 06-api-contract.md              # REST endpoints & WebSocket protocol
-    ├── 07-runtime-and-deployment.md    # Installation & troubleshooting guide
-    ├── 08-testing-and-validation.md    # Automated test results & observed metrics
-    ├── 09-limitations-and-licensing.md # Kinematic limitations & license review
-    └── diagrams/
-        ├── system-context.mmd          # System context diagram
-        ├── component-architecture.mmd  # Component diagram
-        ├── data-flow.mmd               # Motion data flow diagram
-        ├── inference-sequence.mmd      # Sequence diagram
-        ├── operational-swimlane.mmd    # Operational swimlane diagram
-        ├── deployment.mmd              # Physical deployment topology
-        └── runtime-state-machine.mmd   # Playback & inference state machine
+├── .gitignore                      # Environment, checkpoint, cache, and archive exclusions
+├── .agents/                        # Agent harness (rules, skills, agent profiles, configs)
+├── AGENTS.md                       # Operation Dev operating contract
+├── README.md                       # Project overview and baseline status
+├── frontend/                       # Browser/client presentation application
+│   ├── README.md
+│   ├── apps/web/README.md          # Web application package placeholder
+│   ├── public/README.md            # Static public web assets
+│   └── tests/README.md             # Client unit & component tests
+├── backend/                        # Server application, APIs, and kinematic services
+│   ├── README.md
+│   ├── src/README.md               # Backend application source placeholder
+│   ├── migrations/README.md        # Database schema migrations
+│   └── tests/README.md             # Backend unit & integration tests
+├── infra/                          # Operations, deployment, CI, and tooling
+│   ├── README.md
+│   ├── scripts/README.md           # Developer & maintenance scripts
+│   ├── ci/README.md                # Automated CI pipeline workflows
+│   ├── deployment/README.md        # Deployment manifests & container specs
+│   └── observability/README.md     # Monitoring, metrics, and health checks
+├── docs/                           # Human-readable engineering lifecycle documentation
+│   ├── README.md
+│   ├── 00-discovery/README.md      # Discovery audits & exploratory findings
+│   ├── 01-planning/README.md       # Roadmaps, milestones, and planning
+│   ├── 02-requirements/README.md   # Functional & non-functional requirements
+│   ├── 03-business-process/README.md # Business workflows & avatar lifecycles
+│   ├── 04-use-cases/README.md      # Formal use case specifications
+│   ├── 05-architecture/README.md   # System architecture & ADRs
+│   ├── 06-domain/README.md         # Kinematics, skeleton rigs, & domain models
+│   ├── 07-api/README.md            # REST & WebSocket API specifications
+│   ├── 08-behavior/README.md       # State machines & streaming lifecycle
+│   ├── 09-security/README.md       # Threat modeling & upload safety
+│   ├── 10-ux/README.md             # UI design & 3D viewport experience
+│   ├── 11-testing/README.md        # QA strategy & test matrices
+│   ├── 12-operations/README.md     # Deployment runbooks & runtime ops
+│   └── 13-governance/README.md     # Release criteria & license compliance
+├── diagrams/                       # Derived visual projections (Mermaid/SVG)
+│   ├── README.md
+│   ├── context/README.md           # System context diagrams
+│   ├── architecture/README.md      # High-level architecture diagrams
+│   ├── processes/README.md         # Workflow & process flowcharts
+│   ├── sequence/README.md          # Interaction & sequence diagrams
+│   ├── state/README.md             # State machine diagrams
+│   ├── data-flow/README.md         # Motion data flow diagrams
+│   ├── deployment/README.md        # Physical deployment diagrams
+│   └── ux/README.md                # UX navigation & wireframe flows
+├── models/                         # Canonical machine-readable specifications (YAML/JSON)
+│   ├── README.md
+│   ├── context/README.md           # Boundary & external actor schemas
+│   ├── requirements/README.md      # Machine-readable requirement models
+│   ├── process/README.md           # Machine-readable process schemas
+│   ├── architecture/README.md      # Component & interface specifications
+│   ├── domain/README.md            # Kinematic & humanoid skeleton schemas
+│   ├── api/README.md               # OpenAPI / AsyncAPI definitions
+│   ├── interaction/README.md       # Protocol & interaction schemas
+│   ├── security/README.md          # Security policy definitions
+│   ├── ux/README.md                # UI component & design token specs
+│   ├── testing/README.md           # Test vector & fixture schemas
+│   └── deployment/README.md        # Infrastructure topology models
+└── exp/                            # Standalone exploratory experiment workspace
+    ├── README.md
+    ├── AGENTS.md                   # Experiment-specific operating contract
+    ├── .gitignore                  # Experiment weight & artifact ignore rules
+    ├── experiments/README.md       # Experiment logbooks & notebooks
+    ├── scripts/README.md           # Data processing & run scripts
+    ├── environments/README.md      # Python/CUDA environment manifests
+    ├── datasets/README.md          # Dataset references & licensing rules
+    ├── checkpoints/README.md       # Model weight & checkpoint storage policy
+    ├── artifacts/README.md         # Output logs, tensors, & metrics
+    └── reports/README.md           # Experiment summary reports
 ```
 
 ---
 
-## Operating Modes Comparison
+## Architectural Principles
 
-| Feature | Mode A: Fixture Demo | Mode B: Real Inference |
-|---|---|---|
-| **GPU / CUDA Required** | No | Yes (CUDA recommended) |
-| **Pretrained Weights Required** | No | Yes (`out/*.ckpt` ~2.3 GB) |
-| **Model Generation** | Deterministic Gait Cycle | MotionBricks Latent Models |
-| **Validation** | Strict `CanonicalHumanoidMotion/v1` | Strict `CanonicalHumanoidMotion/v1` |
-| **Avatar Support** | Procedural Mannequin + Custom VRM | Procedural Mannequin + Custom VRM |
-| **Status Badge** | `MODE A: FIXTURE (OFFLINE)` | `MODE B: REAL INFERENCE` |
+1. **Decoupled Architecture**: Strict separation between `frontend/` (client UI), `backend/` (services/APIs), and `infra/` (operations).
+2. **Canonical Models as Source of Truth**: Machine-readable models in `models/` serve as the canonical source. `docs/` provide human-readable engineering context, while `diagrams/` provide derived visual views that cite source artifacts.
+3. **Experiment Isolation**: The `exp/` directory is strictly isolated. No production code imports, shared runtime dependencies, or symlinks may connect `exp/` to the website product.
+4. **Deterministic Fixtures**: Once implemented, the application must maintain a deterministic fixture path that functions offline without GPU or model weights.
+5. **Verified Evidence**: All technical decisions, benchmark claims, and format capabilities must be supported by verifiable tests and logs.
 
----
-
-## License Notice
-
-- **Integration Source Code:** Apache License 2.0
-- **Upstream MotionBricks Code:** Apache License 2.0 (Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES)
-- **Model Weights:** NVIDIA Open Model License
+For developer guidelines and agent operating contracts, see [AGENTS.md](file:///c:/Users/PC/Project/VRMMotionGeneration/AGENTS.md) and [.agents/README.md](file:///c:/Users/PC/Project/VRMMotionGeneration/.agents/README.md).
