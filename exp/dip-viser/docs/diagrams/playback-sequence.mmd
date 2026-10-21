@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    actor User as User / Browser
+    participant GUI as Viser GUI Timeline
+    participant Clock as Animation Clock Thread (~30 Hz)
+    participant Playback as PlaybackController
+    participant Viewer as ViserMotionViewer
+    participant Scene as Viser Scene Handles
+
+    Note over Clock,Playback: Continuous Playback Loop (Decoupled from Inference)
+    loop Every ~33ms (target_dt = 1/30s)
+        Clock->>Playback: update(dt * speed)
+        alt is_playing == true
+            Playback->>Playback: Advance current_time += dt * speed
+            alt current_time >= duration && loop == true
+                Playback->>Playback: Wrap current_time % duration (No re-inference!)
+            else current_time >= duration && loop == false
+                Playback->>Playback: Clamp to duration, is_playing = false
+            end
+            Playback-->>Clock: Return (current_frame, changed_flag)
+            alt changed_flag == true
+                Clock->>Viewer: _render_current_frame()
+                Viewer->>Scene: joint_handle.points = joints[frame]
+                Viewer->>Scene: bone_handle.points = bone_segments[frame]
+                Viewer->>GUI: Update timeline slider value
+            end
+        end
+    end
+
+    opt User Interacts with Controls
+        User->>GUI: Drag Timeline Slider to Frame K
+        GUI->>Playback: seek_frame(K)
+        Playback->>Playback: Set current_time = K / fps
+        Playback-->>Viewer: _render_current_frame()
+        Viewer->>Scene: Update joint & bone positions at Frame K
+    end

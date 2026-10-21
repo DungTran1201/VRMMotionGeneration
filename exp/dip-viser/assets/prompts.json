@@ -1,0 +1,40 @@
+{
+  "prompts": [
+    {
+      "id": "walk_wave",
+      "text": "A person walks forward and waves.",
+      "category": "locomotion_gesture",
+      "default_duration": 4.0
+    },
+    {
+      "id": "run_jump",
+      "text": "A person runs forward and jumps.",
+      "category": "acrobatic",
+      "default_duration": 4.0
+    },
+    {
+      "id": "kick_right",
+      "text": "A person kicks with their right leg.",
+      "category": "combat",
+      "default_duration": 3.0
+    },
+    {
+      "id": "sit_down",
+      "text": "A person sits down on the ground.",
+      "category": "posture",
+      "default_duration": 4.0
+    },
+    {
+      "id": "dance_spin",
+      "text": "A person turns around and dances.",
+      "category": "dance",
+      "default_duration": 5.0
+    },
+    {
+      "id": "pick_up",
+      "text": "A person bends down to pick something up from the ground.",
+      "category": "interaction",
+      "default_duration": 4.0
+    }
+  ]
+}
