@@ -176,6 +176,11 @@ export class VrmManager {
           }
         }
         this.hipsNode = vrm.humanoid.getNormalizedBoneNode('hips');
+        if (this.hipsNode && this.hipsNode.position) {
+          this.restHipsPosition = typeof this.hipsNode.position.clone === 'function'
+            ? this.hipsNode.position.clone()
+            : new this.THREE.Vector3(this.hipsNode.position.x || 0, this.hipsNode.position.y || 0, this.hipsNode.position.z || 0);
+        }
       }
 
       this.isLoaded = true;
@@ -233,11 +238,31 @@ export class VrmManager {
       }
     }
 
-    // Apply hips root translation
+    // Apply hips root translation relative to avatar's bind pose,
+    // accounting for vrm.scene orientation (e.g. rotateVRM0) so displacement
+    // advances along the exact world vector matching the skeleton
     if (this.hipsNode && root_translation && root_translation.length > 0) {
       const clampedFrame = Math.max(0, Math.min(frameIndex, root_translation.length - 1));
       const [rx, ry, rz] = root_translation[clampedFrame];
-      this.hipsNode.position.set(rx, ry, rz);
+      const [r0x, r0y, r0z] = root_translation[0];
+
+      // World displacement relative to frame 0
+      const dx = rx - r0x;
+      const dy = ry - r0y;
+      const dz = rz - r0z;
+
+      // Transform world displacement into vrm.scene local coordinate frame
+      const disp = new this.THREE.Vector3(dx, dy, dz);
+      if (this.currentVrm.scene?.quaternion) {
+        disp.applyQuaternion(this.currentVrm.scene.quaternion.clone().invert());
+      }
+
+      const basePos = this.restHipsPosition || new this.THREE.Vector3(0, ry, 0);
+      this.hipsNode.position.set(
+        basePos.x + disp.x,
+        basePos.y + disp.y,
+        basePos.z + disp.z
+      );
     }
 
     // Advance VRM spring bones, expressions, and lookAt exactly once per frame
@@ -281,6 +306,7 @@ export class VrmManager {
       this.currentVrm = null;
       this.boneNodes = {};
       this.hipsNode = null;
+      this.restHipsPosition = null;
       this.isLoaded = false;
       this.currentMetadata = null;
     }

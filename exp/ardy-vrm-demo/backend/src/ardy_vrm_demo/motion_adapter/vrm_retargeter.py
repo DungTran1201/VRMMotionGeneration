@@ -37,6 +37,57 @@ CORE_TO_VRM_BONE_MAP: Dict[int, Tuple[str, str]] = {
     26: ("LeftToeBase", "leftToes"),
 }
 
+# Standard VRM Humanoid parent hierarchy
+VRM_HUMANOID_PARENT_MAP: Dict[str, Optional[str]] = {
+    "hips": None,
+    "spine": "hips",
+    "chest": "spine",
+    "upperChest": "chest",
+    "neck": "upperChest",
+    "head": "neck",
+    "rightShoulder": "upperChest",
+    "rightUpperArm": "rightShoulder",
+    "rightLowerArm": "rightUpperArm",
+    "rightHand": "rightLowerArm",
+    "leftShoulder": "upperChest",
+    "leftUpperArm": "leftShoulder",
+    "leftLowerArm": "leftUpperArm",
+    "leftHand": "leftLowerArm",
+    "rightUpperLeg": "hips",
+    "rightLowerLeg": "rightUpperLeg",
+    "rightFoot": "rightLowerLeg",
+    "rightToes": "rightFoot",
+    "leftUpperLeg": "hips",
+    "leftLowerLeg": "leftUpperLeg",
+    "leftFoot": "leftLowerLeg",
+    "leftToes": "leftFoot",
+}
+
+VRM_TO_CORE_INDEX_MAP: Dict[str, int] = {
+    "hips": 0,
+    "spine": 1,
+    "chest": 2,       # Spine1
+    "upperChest": 4,  # Spine3
+    "neck": 5,
+    "head": 6,
+    "rightShoulder": 7,
+    "rightUpperArm": 8,
+    "rightLowerArm": 9,
+    "rightHand": 10,
+    "leftShoulder": 13,
+    "leftUpperArm": 14,
+    "leftLowerArm": 15,
+    "leftHand": 16,
+    "rightUpperLeg": 19,
+    "rightLowerLeg": 20,
+    "rightFoot": 21,
+    "rightToes": 22,
+    "leftUpperLeg": 23,
+    "leftLowerLeg": 24,
+    "leftFoot": 25,
+    "leftToes": 26,
+}
+
 
 def matrix_to_quaternion_xyzw(rot_mats: np.ndarray) -> np.ndarray:
     """Convert (..., 3, 3) rotation matrices to normalized (..., 4) quaternions [x, y, z, w]."""
@@ -52,13 +103,39 @@ def matrix_to_quaternion_xyzw(rot_mats: np.ndarray) -> np.ndarray:
 
 def ensure_quaternion_continuity(quats: np.ndarray) -> np.ndarray:
     """Ensure quaternion signs do not arbitrarily negate across consecutive frames (avoid slerp flips)."""
-    T, J = quats.shape[:2]
+    T = quats.shape[0]
     continuous = quats.copy()
     for t in range(1, T):
         dots = np.sum(continuous[t] * continuous[t - 1], axis=-1)
-        flips = dots < 0
-        continuous[t, flips] = -continuous[t, flips]
+        if dots < 0:
+            continuous[t] = -continuous[t]
     return continuous
+
+
+def compute_vrm_local_rotations(global_rot_mats: np.ndarray) -> Dict[str, np.ndarray]:
+    """Compute exact local rotations for VRM Humanoid hierarchy from global rotations.
+
+    Given desired global rotations for each mapped bone, computes the relative local rotation:
+    R_local(B) = (R_global(parent(B)))^T @ R_global(B)
+    For hips (root): R_local(hips) = R_global(hips)
+    """
+    T = global_rot_mats.shape[0]
+    vrm_local_mats: Dict[str, np.ndarray] = {}
+
+    for vrm_bone, core_idx in VRM_TO_CORE_INDEX_MAP.items():
+        r_global_bone = global_rot_mats[:, core_idx]
+        parent_bone = VRM_HUMANOID_PARENT_MAP.get(vrm_bone)
+
+        if parent_bone is None:
+            vrm_local_mats[vrm_bone] = r_global_bone
+        else:
+            parent_core_idx = VRM_TO_CORE_INDEX_MAP[parent_bone]
+            r_global_parent = global_rot_mats[:, parent_core_idx]
+            # (R_parent)^T @ R_bone
+            r_local = np.matmul(np.swapaxes(r_global_parent, -1, -2), r_global_bone)
+            vrm_local_mats[vrm_bone] = r_local
+
+    return vrm_local_mats
 
 
 def create_unified_motion_payload(
@@ -71,12 +148,15 @@ def create_unified_motion_payload(
     telemetry: GenerationTelemetry,
     mode: str = "LIVE ARDY",
     posed_joints: Optional[np.ndarray] = None,
+    global_rot_mats: Optional[np.ndarray] = None,
 ) -> UnifiedMotionPayload:
     """Build unified motion payload for synchronized dual-viewport visualization."""
     if local_rot_mats.ndim == 5:
         local_rot_mats = local_rot_mats[0]
     if root_positions.ndim == 3:
         root_positions = root_positions[0]
+    if global_rot_mats is not None and global_rot_mats.ndim == 5:
+        global_rot_mats = global_rot_mats[0]
 
     T, J = local_rot_mats.shape[:2]
     if J != 27:
@@ -88,22 +168,26 @@ def create_unified_motion_payload(
     if not np.all(np.isfinite(root_positions)):
         raise ValueError("Non-finite values found in root_positions")
 
-    # 1. Compute 3D joint positions for Skeleton Viewport
+    # 1. Compute 3D joint positions and global rotations
+    fk_pos, fk_rots = forward_kinematics(local_rot_mats, root_positions)
     if posed_joints is not None:
         if posed_joints.ndim == 4:
             posed_joints = posed_joints[0]
         joint_positions_arr = posed_joints
     else:
-        joint_positions_arr, _ = forward_kinematics(local_rot_mats, root_positions)
+        joint_positions_arr = fk_pos
 
-    # 2. Convert rotation matrices to unit quaternions with continuity check
-    quats = matrix_to_quaternion_xyzw(local_rot_mats)
-    quats = ensure_quaternion_continuity(quats)
+    effective_global_rots = global_rot_mats if global_rot_mats is not None else fk_rots
 
-    # 3. Assemble VRM Bone tracks
+    # 2. Retarget global rotations to VRM Humanoid hierarchy
+    vrm_local_mats = compute_vrm_local_rotations(effective_global_rots)
+
+    # 3. Assemble VRM Bone tracks with unit quaternions and continuity
     vrm_bones: Dict[str, List[List[float]]] = {}
-    for joint_idx, (_, vrm_name) in CORE_TO_VRM_BONE_MAP.items():
-        vrm_bones[vrm_name] = quats[:, joint_idx].tolist()
+    for vrm_name, rot_mats in vrm_local_mats.items():
+        quats = matrix_to_quaternion_xyzw(rot_mats)
+        quats = ensure_quaternion_continuity(quats)
+        vrm_bones[vrm_name] = quats.tolist()
 
     # Hips translation (meters)
     hips_translations = root_positions.tolist()

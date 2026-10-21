@@ -14,9 +14,12 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert data["mode"] in ("LIVE ARDY", "FIXTURE PREVIEW")
+    assert data["server_ready"] is True
+    assert data["mode"] in ("LIVE ARDY", "FIXTURE PREVIEW", "MODEL UNAVAILABLE")
     assert data["torch_version"] is not None
     assert "checkpoint_ready" in data
+    assert "text_encoder_ready" in data
+    assert "inference_ready" in data
 
 
 def test_models_endpoint():

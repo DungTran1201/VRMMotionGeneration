@@ -62,10 +62,11 @@ def get_health():
         except Exception:
             pass
 
-    ckpt_ready = (engine.checkpoints_dir / engine.model_name / "denoiser.safetensors").exists()
+    ckpt_ready = engine.is_checkpoint_ready()
 
     return HealthResponse(
         status="ok",
+        server_ready=True,
         mode=engine.mode,
         device=engine.device,
         torch_version=torch.__version__,
@@ -73,6 +74,10 @@ def get_health():
         gpu_name=gpu_name,
         vram_free_mb=vram_free,
         checkpoint_ready=ckpt_ready,
+        model_loaded=engine.model is not None,
+        text_encoder_ready=engine.text_encoder_ready,
+        inference_ready=engine.inference_ready,
+        blocking_reason=engine.blocking_reason,
         model_name=engine.model_name,
         active_jobs=job_manager.active_job_count,
     )
@@ -80,7 +85,7 @@ def get_health():
 
 @app.get("/api/models", response_model=ModelsResponse)
 def get_models():
-    ckpt_ready = (engine.checkpoints_dir / engine.model_name / "denoiser.safetensors").exists()
+    ckpt_ready = engine.is_checkpoint_ready()
     return ModelsResponse(
         models=[
             ModelInfo(
@@ -107,6 +112,12 @@ def get_models():
 
 @app.post("/api/generations")
 async def create_generation(req: GenerationRequest):
+    if not engine.inference_ready:
+        raise HTTPException(
+            status_code=503,
+            detail=f"MODEL UNAVAILABLE: {engine.blocking_reason}",
+        )
+
     if job_manager.active_job_count >= 1:
         raise HTTPException(status_code=429, detail="A generation job is already running on the GPU.")
 

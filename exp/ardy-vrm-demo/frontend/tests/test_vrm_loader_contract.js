@@ -23,6 +23,18 @@ class MockVector3 {
     this.z = z;
     return this;
   }
+  clone() {
+    return new MockVector3(this.x, this.y, this.z);
+  }
+  add(v) {
+    this.x += v.x;
+    this.y += v.y;
+    this.z += v.z;
+    return this;
+  }
+  applyQuaternion() {
+    return this;
+  }
 }
 
 class MockBox3 {
@@ -321,4 +333,62 @@ test('VrmManager: replacing avatar cleanly disposes old scene and resources', as
   assert.equal(disposedCount, 2);
   assert.equal(manager.isLoaded, false);
   assert.equal(manager.currentVrm, null);
+});
+
+test('VrmManager: updateFrame applies bone rotations and relative hips displacement', async () => {
+  const mockScene = new MockGroup();
+  const mockHips = { position: new MockVector3(0, 0.85, 0), quaternion: { set: () => {} } };
+  const mockRightUpperArm = { quaternion: { set: (x, y, z, w) => { mockRightUpperArm.quat = [x, y, z, w]; } } };
+
+  class MockGLTFLoader {
+    register() {}
+    async loadAsync() {
+      const scene = new MockGroup();
+      return {
+        scene,
+        userData: {
+          vrm: {
+            scene,
+            meta: { metaVersion: '1', title: 'TestAvatar' },
+            humanoid: {
+              getNormalizedBoneNode: (name) => {
+                if (name === 'hips') return mockHips;
+                if (name === 'rightUpperArm') return mockRightUpperArm;
+                return null;
+              },
+            },
+            update: () => {},
+          },
+        },
+      };
+    }
+  }
+
+  const manager = new VrmManager(mockTHREE, mockScene, MockGLTFLoader, class {});
+  await manager.loadFromFile(createMockFile('motion_test.vrm', 1000));
+
+  // Set motion data with root forward displacement
+  manager.setMotionData({
+    bones: {
+      rightUpperArm: [
+        [0, 0, 0, 1],
+        [0.1, 0.2, 0.3, 0.9],
+      ],
+    },
+    root_translation: [
+      [0.0, 0.90, 0.0],
+      [0.0, 0.95, 0.5], // Moved +0.5m forward along Z, +0.05m up along Y
+    ],
+  });
+
+  // Initial frame 0
+  manager.updateFrame(0);
+  assert.equal(mockHips.position.y, 0.85); // Retains native bind height
+  assert.equal(mockHips.position.z, 0.0);
+
+  // Frame 1
+  manager.updateFrame(1);
+  assert.ok(Math.abs(mockHips.position.y - 0.90) < 1e-5);
+  assert.ok(Math.abs(mockHips.position.z - 0.50) < 1e-5);
+  assert.deepEqual(mockRightUpperArm.quat, [0.1, 0.2, 0.3, 0.9]);
 });

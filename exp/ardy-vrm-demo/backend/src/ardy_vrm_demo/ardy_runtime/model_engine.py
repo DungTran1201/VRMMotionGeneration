@@ -18,46 +18,8 @@ from ..motion_adapter.vrm_retargeter import create_unified_motion_payload
 from ..schemas import GenerationTelemetry, UnifiedMotionPayload
 
 
-class DecoupledTextEncoder(torch.nn.Module):
-    """Text encoder generating 4096-dimensional semantic conditioning tensors.
-
-    Matches LLM2Vec feature dimensions without requiring 16.07 GB weights in VRAM,
-    fitting within the 4 GB VRAM budget of NVIDIA GeForce GTX 1650.
-    """
-
-    def __init__(self, dim: int = 4096, device: str = "cuda:0"):
-        super().__init__()
-        self.dim = dim
-        self.device = device
-
-    def __call__(self, texts):
-        if isinstance(texts, str):
-            texts = [texts]
-
-        tensors = []
-        lengths = []
-        for text in texts:
-            words = text.strip().split()
-            L = max(1, len(words))
-            # Generate deterministic semantic embedding based on text content hash
-            h = int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:8], 16)
-            g = torch.Generator(device="cpu").manual_seed(h)
-            feat = torch.randn(L, self.dim, generator=g, dtype=torch.float32)
-            feat = feat / torch.norm(feat, dim=-1, keepdim=True)
-            tensors.append(feat)
-            lengths.append(L)
-
-        max_len = max(lengths)
-        batch_size = len(texts)
-        padded = torch.zeros(batch_size, max_len, self.dim, dtype=torch.float32)
-        for i, (t, l) in enumerate(zip(tensors, lengths)):
-            padded[i, :l] = t
-
-        return padded.to(self.device), lengths
-
-
 class ArdyEngine:
-    """Singleton model runner maintaining a warm ARDY model in GPU memory."""
+    """Singleton model runner maintaining ARDY model state and truthful readiness."""
 
     _instance: Optional["ArdyEngine"] = None
 
@@ -75,7 +37,11 @@ class ArdyEngine:
         self.model = None
         self.text_encoder = None
         self.model_load_time_seconds: Optional[float] = None
-        self.mode = "LIVE ARDY" if torch.cuda.is_available() else "FIXTURE PREVIEW"
+        self.text_encoder_ready: bool = False
+        self.blocking_reason: Optional[str] = None
+
+        # Probe readiness immediately
+        self.probe_text_encoder()
 
     @classmethod
     def get_instance(cls, checkpoints_dir: Optional[str] = None, device: Optional[str] = None) -> "ArdyEngine":
@@ -83,19 +49,65 @@ class ArdyEngine:
             cls._instance = cls(checkpoints_dir=checkpoints_dir, device=device)
         return cls._instance
 
+    def is_checkpoint_ready(self) -> bool:
+        """Verify that all required checkpoint files are present."""
+        model_path = self.checkpoints_dir / self.model_name
+        if not model_path.exists():
+            return False
+        has_config = (model_path / "config.yaml").exists()
+        has_denoiser = (model_path / "denoiser.safetensors").exists()
+        has_tokenizer = (model_path / "tokenizer.safetensors").exists()
+        return has_config and has_denoiser and has_tokenizer
+
+    def probe_text_encoder(self) -> bool:
+        """Probe availability of genuine ARDY text encoder (remote service or local LLM2Vec)."""
+        try:
+            from ardy.model.load_model import load_text_encoder
+            enc = load_text_encoder(mode="auto")
+            self.text_encoder = enc
+            self.text_encoder_ready = True
+            self.blocking_reason = None
+            return True
+        except Exception as e:
+            self.text_encoder = None
+            self.text_encoder_ready = False
+            self.blocking_reason = (
+                f"Official ARDY semantic text encoder unavailable ({type(e).__name__}): {e}. "
+                "Requires access to gated model meta-llama/Meta-Llama-3-8B-Instruct or running TEXT_ENCODER_URL service."
+            )
+            return False
+
+    @property
+    def inference_ready(self) -> bool:
+        """Inference is ready only if both complete checkpoint and genuine text encoder are ready."""
+        return self.is_checkpoint_ready() and self.text_encoder_ready
+
+    @property
+    def mode(self) -> str:
+        """Computed truthful operational mode."""
+        if self.inference_ready:
+            return "LIVE ARDY"
+        elif self.is_checkpoint_ready():
+            return "MODEL UNAVAILABLE"
+        return "MODEL UNAVAILABLE"
+
     def load_model(self) -> float:
-        """Load the ARDY checkpoint into memory."""
+        """Load the ARDY model into memory using genuine text encoder."""
         if self.model is not None:
             return self.model_load_time_seconds or 0.0
+
+        if not self.is_checkpoint_ready():
+            raise FileNotFoundError(f"Checkpoint incomplete or missing at: {self.checkpoints_dir / self.model_name}")
+
+        if not self.text_encoder_ready or self.text_encoder is None:
+            raise RuntimeError(
+                f"Cannot load ARDY for live inference without genuine semantic text encoder: {self.blocking_reason}"
+            )
 
         t0 = time.monotonic()
         from ardy.model import load_model
 
-        self.text_encoder = DecoupledTextEncoder(dim=4096, device=self.device)
         model_path = self.checkpoints_dir / self.model_name
-        if not model_path.exists():
-            raise FileNotFoundError(f"Checkpoint not found at: {model_path}")
-
         self.model = load_model(
             str(model_path),
             device=self.device,
@@ -112,6 +124,12 @@ class ArdyEngine:
         seed: Optional[int] = None,
     ) -> UnifiedMotionPayload:
         """Generate full-body motion sequence for given prompt and duration."""
+        if not self.inference_ready:
+            raise RuntimeError(
+                f"Live ARDY generation unavailable: {self.blocking_reason} "
+                "Fake or hash-seeded embeddings are strictly disallowed in live mode."
+            )
+
         t_start_e2e = time.monotonic()
         seed_val = seed if seed is not None else int(time.time() * 1000) % 1_000_000
 
@@ -169,6 +187,7 @@ class ArdyEngine:
         local_rot_mats = output["local_rot_mats"]
         root_positions = output["root_positions"]
         posed_joints = output.get("posed_joints")
+        global_rot_mats = output.get("global_rot_mats")
 
         if isinstance(local_rot_mats, torch.Tensor):
             local_rot_mats = local_rot_mats.detach().cpu().numpy()
@@ -176,6 +195,8 @@ class ArdyEngine:
             root_positions = root_positions.detach().cpu().numpy()
         if isinstance(posed_joints, torch.Tensor):
             posed_joints = posed_joints.detach().cpu().numpy()
+        if isinstance(global_rot_mats, torch.Tensor):
+            global_rot_mats = global_rot_mats.detach().cpu().numpy()
 
         # Retargeting pass timing
         t_retarget_start = time.monotonic()
@@ -205,8 +226,9 @@ class ArdyEngine:
             seed=seed_val,
             source_model=self.model_name,
             telemetry=telemetry_preliminary,
-            mode="LIVE ARDY",
+            mode=self.mode,
             posed_joints=posed_joints,
+            global_rot_mats=global_rot_mats,
         )
 
         t_retarget_end = time.monotonic()

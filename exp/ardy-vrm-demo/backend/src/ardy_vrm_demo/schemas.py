@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class HealthResponse(BaseModel):
     status: str = "ok"
+    server_ready: bool = True
     mode: str = "LIVE ARDY"  # LIVE ARDY | BATCH ARDY | FIXTURE PREVIEW | MODEL UNAVAILABLE
     device: str
     torch_version: str
@@ -13,6 +14,10 @@ class HealthResponse(BaseModel):
     gpu_name: Optional[str] = None
     vram_free_mb: Optional[float] = None
     checkpoint_ready: bool
+    model_loaded: bool = False
+    text_encoder_ready: bool = False
+    inference_ready: bool = False
+    blocking_reason: Optional[str] = None
     model_name: str
     active_jobs: int
 

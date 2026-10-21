@@ -405,11 +405,22 @@ class App {
     const duration = parseFloat(this.durationSlider.value);
     const seed = this.seedInput.value.trim() ? parseInt(this.seedInput.value, 10) : null;
 
+    // Clean up any stale sockets or polling intervals
+    if (this.activeWebSocket) {
+      try { this.activeWebSocket.close(); } catch (_) {}
+      this.activeWebSocket = null;
+    }
+    if (this.activePollInterval) {
+      clearInterval(this.activePollInterval);
+      this.activePollInterval = null;
+    }
+
     this.setGeneratingUI(true);
     this.telemetry.setStatus('Submitting job...');
 
     try {
-      const { job_id } = await this.api.createGeneration(prompt, duration, seed);
+      const res = await this.api.createGeneration(prompt, duration, seed);
+      const job_id = res.job_id;
       this.activeJobId = job_id;
       this.telemetry.setStatus(`Job ${job_id} queued`);
 
@@ -424,39 +435,65 @@ class App {
         () => {
           this.setGeneratingUI(false);
           this.activeJobId = null;
+          this.activeWebSocket = null;
         }
       );
     } catch (e) {
-      this.showToast(e.message || 'Failed to submit generation job.');
+      const msg = e.message || 'Failed to submit generation job.';
+      this.showToast(msg);
       this.setGeneratingUI(false);
-      this.telemetry.setStatus('Error');
+      this.activeJobId = null;
+      this.telemetry.setStatus('Unavailable');
     }
   }
 
   handleJobEvent(event) {
     if (!event) return;
 
-    if (event.status === 'processing') {
-      const step = event.progress_step || 'denoiser';
+    const status = event.status;
+    if (status === 'queued') {
+      this.telemetry.setStatus(`Job ${event.job_id || this.activeJobId} queued`);
+    } else if (status === 'loading_model') {
+      this.telemetry.setStatus('Loading ARDY model...');
+    } else if (status === 'generating') {
+      this.telemetry.setStatus('Generating diffusion pass...');
+    } else if (status === 'decoding') {
+      this.telemetry.setStatus('Decoding motion...');
+    } else if (status === 'retargeting') {
+      this.telemetry.setStatus('Retargeting to VRM...');
+    } else if (status === 'processing') {
+      const step = event.progress_step || 'diffusion';
       this.telemetry.setStatus(`Generating (${step})...`);
-    } else if (event.status === 'completed') {
+    } else if (status === 'completed') {
       this.telemetry.setStatus('Complete');
       if (event.result) {
         this.applyMotionPayload(event.result);
       }
-    } else if (event.status === 'failed') {
+      this.setGeneratingUI(false);
+      this.activeJobId = null;
+    } else if (status === 'failed') {
       this.telemetry.setStatus('Failed');
-      this.showToast(event.error_message || 'Motion generation failed.');
-    } else if (event.status === 'cancelled') {
+      const err = event.error || event.error_message || event.detail || 'Motion generation failed.';
+      this.showToast(`Generation Error: ${err}`);
+      this.setGeneratingUI(false);
+      this.activeJobId = null;
+    } else if (status === 'cancelled') {
       this.telemetry.setStatus('Cancelled');
       this.showToast('Generation job was cancelled.');
+      this.setGeneratingUI(false);
+      this.activeJobId = null;
     }
   }
 
   async pollJobStatus(jobId) {
-    const pollInterval = setInterval(async () => {
+    if (this.activePollInterval) {
+      clearInterval(this.activePollInterval);
+    }
+
+    this.activePollInterval = setInterval(async () => {
       if (this.activeJobId !== jobId) {
-        clearInterval(pollInterval);
+        clearInterval(this.activePollInterval);
+        this.activePollInterval = null;
         return;
       }
 
@@ -465,12 +502,14 @@ class App {
         this.handleJobEvent(job);
 
         if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
-          clearInterval(pollInterval);
+          clearInterval(this.activePollInterval);
+          this.activePollInterval = null;
           this.setGeneratingUI(false);
           this.activeJobId = null;
         }
       } catch (e) {
-        clearInterval(pollInterval);
+        clearInterval(this.activePollInterval);
+        this.activePollInterval = null;
         this.setGeneratingUI(false);
         this.activeJobId = null;
       }
