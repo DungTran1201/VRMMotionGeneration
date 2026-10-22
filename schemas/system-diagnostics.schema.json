@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vrmmotiongeneration.local/schemas/system-diagnostics.schema.json",
+  "title": "SystemDiagnosticsSchema",
+  "description": "Validation schema for runtime diagnostics payload",
+  "type": "object",
+  "required": [
+    "platform",
+    "appVersion",
+    "environment",
+    "timestamp",
+    "capabilities"
+  ],
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": ["web", "electron"]
+    },
+    "appVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+"
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["development", "production", "test"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "os": {
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string" },
+        "arch": { "type": "string" },
+        "release": { "type": "string" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["desktopIntegration", "fileSystemAccess", "nativeMenus"],
+      "properties": {
+        "desktopIntegration": { "type": "boolean" },
+        "fileSystemAccess": { "type": "boolean" },
+        "nativeMenus": { "type": "boolean" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

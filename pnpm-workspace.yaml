@@ -1,0 +1,11 @@
+packages:
+  - 'frontend/apps/*'
+  - 'frontend/packages/*'
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  tar: '>=7.5.18'
+  cross-spawn: '>=7.0.6'
+  builder-util-runtime: '>=9.7.0'

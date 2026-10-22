@@ -1,18 +1,12 @@
-# `frontend/apps/web/` — Web Application
+# Web Client Application (`@vrm/web`)
 
-## Purpose
-Contains the core web application implementation for the VRM motion viewer and generation interface. The specific frontend technology stack (e.g., framework, bundler) will be determined following discovery and formal ADR approval.
+Browser-based client Single Page Application (SPA) built with Vite and Vue 3.
 
-## What Belongs Here
-- Web application entry point and component tree.
-- 3D canvas and viewport integration (WebGL / Three.js / WebGPU).
-- Local avatar format managers and bone inspector components.
-- Playback timeline scrubber, speed controls, and mode indicators.
+---
 
-## What Must NOT Belong Here
-- Backend server implementations or direct model weight execution.
-- Direct imports or symlinks from `exp/`.
-- Hardcoded mock credentials or arbitrary local file path access.
+## Capabilities
 
-## Source-of-Truth Relationship
-- Implementation conforms to `docs/10-ux/`, `models/ux/`, and `diagrams/ux/`.
+- Mounts shared presentation views from `@vrm/ui`.
+- Uses `@vrm/app-core` to detect browser environment and fall back to web capabilities gracefully.
+- Fast development with Vite HMR (`pnpm dev:web`).
+- Production build outputs optimized static bundles to `dist/` (`pnpm build:web`).

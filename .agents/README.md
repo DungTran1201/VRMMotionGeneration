@@ -1,20 +1,48 @@
-# `.agents` — Project Agent Harness
+# Agent Harness — VRMMotionGeneration Web + Electron Foundation
 
-This directory is the portable source of truth for AI coding-agent guidance in `VRMMotionGeneration`. It implements the **Operation Dev** baseline: cross-functional software engineering governance, evidence-backed execution, strict product boundaries, and isolated experiment management.
+This directory houses the operational agent harness, specialized role personas, engineering rules, runnable workflows, templates, and actionable skills for the Web + Electron Desktop monorepo.
 
-## Contents
-- **`rules/`**: Persistent constraints, architectural boundaries, modeling rules, security standards, and testing policies.
-- **`skills/`**: Task playbooks in portable `SKILL.md` format (YAML frontmatter + step-by-step instructions).
-- **`agents/`**: Specialist role profiles (architect, product analyst, frontend engineer, backend engineer, devops engineer, QA reviewer, security reviewer).
-- **`config/`**: Lifecycle policies, change classification (`change-types.yaml`), artifact matrices (`artifact-matrix.yaml`), document mapping (`document-map.yaml`), and phase gates (`phase-gates.yaml`).
-- **`templates/`**: Document, model, and report templates (ADR, use case, model, report).
-- **`scripts/`**: Deterministic validators, including `validate_layout.py`.
-- **`hooks/`**: Portable quality gate runners and Git hooks.
-- **`hooks.json`**: Conservative hook automation configuration (disabled by default until official host runtime support is verified).
+---
 
-## Governance Workflow
-1. **Intake & Discovery**: Classify change, audit existing state, verify facts in `docs/00-discovery/`.
-2. **Modeling**: Author or update canonical machine-readable models in `models/`.
-3. **Documentation & Diagrams**: Maintain human-readable specs in `docs/` and derived views in `diagrams/`.
-4. **Implementation**: Build within designated boundaries (`frontend/`, `backend/`, `infra/`), keeping `exp/` isolated.
-5. **Quality Gate**: Execute `python .agents/scripts/validate_layout.py` and automated test suites before delivery.
+## Directory Organization
+
+```text
+.agents/
+├── README.md               # Overview of harness architecture and usage
+├── skill-sources.md        # Provenance, licensing, and attribution for skills
+├── agents/                 # Role-specific persona guides
+├── rules/                  # Mandatory engineering, architecture, and security rules
+├── skills/                 # Actionable, step-by-step technical runbooks
+├── workflows/              # Multi-step end-to-end task runbooks
+├── templates/              # Standard templates (ADR, Bug Report, Test Plan)
+└── config/                 # Policies and skill index configuration
+```
+
+---
+
+## Agent Personas (`agents/`)
+
+1. **`operation-dev.md`**: Primary full-lifecycle software engineer and release operator.
+2. **`product-ba.md`**: Requirements gathering, scope definition, user stories.
+3. **`software-architect.md`**: System design, package boundaries, ADR formulation.
+4. **`frontend-engineer.md`**: Vue 3, Vite, responsive UI, design token engineering.
+5. **`electron-engineer.md`**: Desktop main process, window lifecycle, preload bridge, native packaging.
+6. **`backend-engineer.md`**: Server-side architecture, HTTP/WebSocket contracts (when active).
+7. **`qa-test-engineer.md`**: Vitest test coverage, integration tests, E2E validation.
+8. **`appsec-reviewer.md`**: Threat modeling, CSP auditing, Electron security verification.
+9. **`devops-release-engineer.md`**: GitHub Actions CI, build pipelines, Windows packaging.
+10. **`technical-writer.md`**: Architecture documentation, Mermaid diagrams, release notes.
+
+---
+
+## Mandatory Engineering Rules (`rules/`)
+
+- `00-workspace-and-scope.md`: Focus on Web + Electron foundation; legacy motion ML prohibited.
+- `01-evidence-not-assumptions.md`: Evidence-based classification of facts.
+- `02-architecture-boundaries.md`: Strict separation between apps and shared packages.
+- `03-typescript-quality.md`: Strict mode, zero `any`, narrowing external data.
+- `04-electron-security.md`: Context isolation, sandboxing, disabled nodeIntegration, CSP.
+- `05-testing-and-gates.md`: Passing quality gates QG-01 through QG-08.
+- `06-dependencies-and-supply-chain.md`: Reproducible lockfiles, zero vulnerability policy.
+- `07-documentation-and-diagrams.md`: Documentation in `docs/`, diagrams in `diagrams/`, schemas in `schemas/`.
+- `08-git-and-release.md`: Branch safety, zero force-push, zero commit of secrets.

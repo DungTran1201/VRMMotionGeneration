@@ -1,0 +1,21 @@
+version: "1.0"
+policy:
+  operating_mode: "evidence-first"
+  primary_role: "operation-dev"
+  branch_protection:
+    disallow_direct_push_main: true
+    disallow_force_push: true
+    require_quality_gates_pass: true
+  scope_restrictions:
+    allow_web: true
+    allow_electron: true
+    allow_shared_packages: true
+    banned_domains:
+      - "motion-generation"
+      - "kinematic-retargeting"
+      - "ardy"
+      - "motionstreamer"
+      - "dip"
+      - "motionbricks"
+      - "pytorch"
+      - "cuda"

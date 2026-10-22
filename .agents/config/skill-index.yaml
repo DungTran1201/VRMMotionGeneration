@@ -1,0 +1,35 @@
+version: "1.0"
+skills:
+  - id: discovery-and-planning
+    path: skills/discovery-and-planning/SKILL.md
+    category: planning
+  - id: architecture-and-adr
+    path: skills/architecture-and-adr/SKILL.md
+    category: architecture
+  - id: vue-typescript-implementation
+    path: skills/vue-typescript-implementation/SKILL.md
+    category: frontend
+  - id: electron-secure-shell
+    path: skills/electron-secure-shell/SKILL.md
+    category: desktop
+  - id: debugging-root-cause
+    path: skills/debugging-root-cause/SKILL.md
+    category: quality
+  - id: test-driven-development
+    path: skills/test-driven-development/SKILL.md
+    category: testing
+  - id: browser-e2e-playwright
+    path: skills/browser-e2e-playwright/SKILL.md
+    category: testing
+  - id: appsec-review
+    path: skills/appsec-review/SKILL.md
+    category: security
+  - id: accessibility-ui-review
+    path: skills/accessibility-ui-review/SKILL.md
+    category: frontend
+  - id: documentation-and-mermaid
+    path: skills/documentation-and-mermaid/SKILL.md
+    category: documentation
+  - id: release-and-git-hygiene
+    path: skills/release-and-git-hygiene/SKILL.md
+    category: release

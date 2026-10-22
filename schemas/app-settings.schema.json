@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vrmmotiongeneration.local/schemas/app-settings.schema.json",
+  "title": "AppSettingsSchema",
+  "description": "Validation schema for application settings and user preferences",
+  "type": "object",
+  "required": ["theme", "telemetryEnabled", "logLevel"],
+  "properties": {
+    "theme": {
+      "type": "string",
+      "enum": ["dark", "light", "system"],
+      "default": "dark"
+    },
+    "telemetryEnabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "logLevel": {
+      "type": "string",
+      "enum": ["debug", "info", "warn", "error"],
+      "default": "info"
+    },
+    "desktopWindow": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "integer", "minimum": 800 },
+        "height": { "type": "integer", "minimum": 600 },
+        "rememberBounds": { "type": "boolean" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@vrm/web",
+  "version": "0.1.0",
+  "description": "Browser client single page application",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vrm/app-core": "workspace:*",
+    "@vrm/platform-contracts": "workspace:*",
+    "@vrm/shared": "workspace:*",
+    "@vrm/ui": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^4.1.12",
+    "vue-tsc": "^2.2.0"
+  }
+}

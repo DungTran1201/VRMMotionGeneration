@@ -1,27 +1,13 @@
-# `diagrams/` — Visual System Projections
+# System Diagrams Index
 
-## Purpose
-The `diagrams/` directory contains visual architectural, operational, and behavioral representations (rendered via Mermaid markdown or SVG). Diagrams are derived projections of canonical models in `models/` and narrative documentation in `docs/`.
+This directory contains visual architectural and procedural projections derived from canonical ADRs, schemas, and specifications.
 
-## Critical Rule: Derived Views Only
-- Diagrams are **not** sole sources of truth.
-- Every diagram created here must explicitly reference its underlying source artifact(s) from `models/` or `docs/`.
-- If an implementation change alters system behavior, update the canonical model first, then refresh the corresponding diagram.
+---
 
-## Organization
-- `context/`: System context, external actors, and environmental boundary diagrams.
-- `architecture/`: High-level component decomposition, layer boundaries, and structural views.
-- `processes/`: Business workflows, user journeys, and operational process flows.
-- `sequence/`: Synchronous and asynchronous message exchange, API calls, and streaming interactions.
-- `state/`: Finite state machines for playback, streaming sessions, and loading lifecycle.
-- `data-flow/`: Motion data transformation, joint representation decoding, and retargeting flows.
-- `deployment/`: Container, network topology, and hosting layout diagrams.
-- `ux/`: User interaction wireframes, screen transitions, and viewport layout maps.
+## Diagram Catalog
 
-## What Belongs Here
-- Plain-text Mermaid diagram source files (`.mmd` or fenced markdown blocks) and exported vector graphics (`.svg`).
-- Clear component labeling distinguishing planned vs implemented components.
-
-## What Must NOT Belong Here
-- Unreferenced diagrams that contradict canonical models.
-- Proprietary binary diagram formats (e.g. Visio binaries) that cannot be reviewed via version control.
+| Category | Diagram File | Source Documentation | Description |
+| :--- | :--- | :--- | :--- |
+| **Architecture** | [`architecture/web-desktop-monorepo.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/architecture/web-desktop-monorepo.mmd) | [`docs/01-planning/target-architecture.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/01-planning/target-architecture.md) | Component boundaries and dependency flow between apps and shared packages. |
+| **Sequence** | [`sequence/electron-startup.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/sequence/electron-startup.mmd) | [`docs/04-security/electron-security-baseline.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/04-security/electron-security-baseline.md) | Electron startup, security isolation, and IPC contextBridge handshake. |
+| **Deployment** | [`deployment/web-and-desktop-build.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/deployment/web-and-desktop-build.mmd) | [`docs/06-operations/development-and-release.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/06-operations/development-and-release.md) | Monorepo CI quality gates, compilation, and distribution packaging. |

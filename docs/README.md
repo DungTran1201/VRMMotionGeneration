@@ -1,32 +1,18 @@
-# `docs/` — Engineering Lifecycle Documentation
+# Engineering Lifecycle Documentation Index
 
-## Purpose
-The `docs/` directory is the human-readable repository of technical documentation, architectural decision records (ADRs), requirements, analysis, and operational guides. It mirrors the canonical models in `models/` in a human-accessible, narrative form.
+This directory contains human-readable engineering documentation, Architecture Decision Records (ADRs), specifications, and operational runbooks for the Web + Electron Desktop application foundation.
 
-## Organization
-- `00-discovery/`: System baseline audits, exploratory findings, technology evaluations, and research reports.
-- `01-planning/`: Project roadmap, milestone plans, and sprint backlogs.
-- `02-requirements/`: Functional and non-functional requirement specifications.
-- `03-business-process/`: Business workflows, avatar onboarding, and motion generation processes.
-- `04-use-cases/`: Formal use case walk-throughs and scenario definitions.
-- `05-architecture/`: System design, component boundary definitions, and Architecture Decision Records (ADRs).
-- `06-domain/`: Humanoid kinematics, skeletal hierarchies, coordinate systems, and avatar standards (VRM/glTF).
-- `07-api/`: REST endpoints, WebSocket streaming protocols, request/response models, and error codes.
-- `08-behavior/`: System behavior, streaming lifecycle, and state machine transition rules.
-- `09-security/`: Threat modeling, asset validation rules, authentication policies, and data handling.
-- `10-ux/`: UI component design, viewport controls, camera interaction, and user flows.
-- `11-testing/`: Test strategy, synthetic test vectors, QA benchmarks, and quality gate definitions.
-- `12-operations/`: Deployment runbooks, container operations, environment setups, and troubleshooting.
-- `13-governance/`: Release readiness criteria, upstream licensing compliance, and experiment promotion rules.
+---
 
-## What Belongs Here
-- Markdown documents authored or validated by engineering roles.
-- Clear statements supported by verified code paths and test evidence.
+## Documentation Sections
 
-## What Must NOT Belong Here
-- Application source code, compiled binaries, or model weights.
-- Unverifiable marketing claims or fabricated benchmark figures.
-
-## Source-of-Truth Relationship
-- Synchronized with machine-readable specifications in `models/`.
-- Active code and passing automated tests always outrank outdated documentation.
+| Section | Title | Primary Artifacts | Description |
+| :--- | :--- | :--- | :--- |
+| **`00-discovery/`** | Discovery & Audit | [`reset-inventory.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/00-discovery/reset-inventory.md)<br/>[`reset-decisions.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/00-discovery/reset-decisions.md) | Audit of purged experimental code, backup verification, and reset decisions. |
+| **`01-planning/`** | Target Planning | [`target-architecture.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/01-planning/target-architecture.md) | High-level system context, package boundaries, and execution roadmap. |
+| **`02-requirements/`** | Requirements | [`system-requirements.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/02-requirements/system-requirements.md) | Functional and non-functional requirements for the app shell. |
+| **`03-architecture/`** | Architecture & ADRs | [`ADR-0001-web-desktop-monorepo.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/03-architecture/ADRs/ADR-0001-web-desktop-monorepo.md) | Formal ADR establishing Vue 3, Vite, Electron, and pnpm workspaces. |
+| **`04-security/`** | Security Baseline | [`electron-security-baseline.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/04-security/electron-security-baseline.md) | Electron security invariants, CSP policy, and IPC channel hardening. |
+| **`05-testing/`** | Quality Strategy | [`quality-gates.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/05-testing/quality-gates.md) | Automated quality gates (QG-01 to QG-08) and test execution matrix. |
+| **`06-operations/`** | Operations & Runbook | [`development-and-release.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/06-operations/development-and-release.md) | Development server launch, builds, packaging, and debugging runbooks. |
+| **`07-governance/`** | Release Governance | [`release-governance.md`](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/07-governance/release-governance.md) | Branch protection, versioning policy, and release acceptance criteria. |

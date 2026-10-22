@@ -1,16 +1,9 @@
-# `infra/scripts/` — Developer & Operational Scripts
+# Infrastructure Scripts
 
-## Purpose
-Maintains cross-platform developer tooling, local environment verification utilities, dependency checkers, and maintenance automation scripts.
+Operational and maintenance scripts for workspace validation and health checking.
 
-## What Belongs Here
-- Local development environment bootstrap scripts.
-- Port availability and service health check scripts.
-- Layout and code style formatting enforcement scripts.
+---
 
-## What Must NOT Belong Here
-- Production database drop scripts or destructive automation without safeguard flags.
-- Scripts embedding hardcoded user credentials or private paths.
+## Available Scripts
 
-## Source-of-Truth Relationship
-- Operational scripts must implement procedures specified in `docs/12-operations/`.
+- **`validate-workspace.mjs`**: Audits workspace package boundaries, verifies zero banned legacy imports, checks tsconfig references and schema synchronization.

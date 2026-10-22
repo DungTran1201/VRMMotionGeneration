@@ -1,0 +1,33 @@
+graph LR
+    subgraph Source ["Source Monorepo"]
+        WebSrc["frontend/apps/web"]
+        DesktopSrc["frontend/apps/desktop"]
+        SharedPackages["frontend/packages/*"]
+    end
+
+    subgraph CI ["GitHub Actions CI Pipeline"]
+        Install["pnpm install --frozen-lockfile"]
+        Typecheck["pnpm typecheck (tsc)"]
+        Lint["pnpm lint"]
+        Test["pnpm test (Vitest)"]
+        WebBuild["pnpm build:web (Vite)"]
+        DesktopBuild["pnpm build:desktop (Vite/TSC)"]
+    end
+
+    subgraph Targets ["Distribution Targets"]
+        WebDist["Web Static Artifacts<br/>(dist/ for CDN / Web Hosting)"]
+        DesktopDist["Windows / macOS / Linux Installers<br/>(Portable EXE, NSIS, DMG, AppImage)"]
+    end
+
+    WebSrc --> Install
+    DesktopSrc --> Install
+    SharedPackages --> Install
+
+    Install --> Typecheck
+    Typecheck --> Lint
+    Lint --> Test
+    Test --> WebBuild
+    Test --> DesktopBuild
+
+    WebBuild --> WebDist
+    DesktopBuild --> DesktopDist

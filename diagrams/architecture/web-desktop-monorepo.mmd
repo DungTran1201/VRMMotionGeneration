@@ -1,0 +1,36 @@
+graph TB
+    subgraph ClientLayers ["Client Presentation Layer"]
+        BrowserClient["Browser Web Client<br/>(frontend/apps/web)"]
+        ElectronClient["Desktop Native Shell<br/>(frontend/apps/desktop)"]
+    end
+
+    subgraph DesktopInternals ["Desktop Architecture"]
+        ElectronMain["Main Process (Node.js runtime)<br/>- Window Lifecycle<br/>- CSP & Security Rules<br/>- IPC Handlers"]
+        ElectronPreload["Preload Script<br/>- ContextBridge<br/>- Typed desktopAPI Exposure"]
+        ElectronRenderer["Renderer Process (Sandboxed)<br/>- Mounts Shared UI"]
+
+        ElectronClient --> ElectronMain
+        ElectronMain --> ElectronPreload
+        ElectronPreload --> ElectronRenderer
+    end
+
+    subgraph SharedPackages ["Shared Monorepo Workspace (frontend/packages)"]
+        UI["@vrm/ui<br/>- Vue 3 Components<br/>- Navigation & Views<br/>- CSS Design Tokens"]
+        AppCore["@vrm/app-core<br/>- Platform Detection<br/>- State Stores<br/>- Capability Fallback"]
+        PlatformContracts["@vrm/platform-contracts<br/>- DesktopAPI Interface<br/>- Diagnostics Types<br/>- IPC Channels"]
+        SharedUtils["@vrm/shared<br/>- Constants<br/>- Version & App Metadata"]
+
+        BrowserClient --> UI
+        ElectronRenderer --> UI
+        UI --> AppCore
+        AppCore --> PlatformContracts
+        AppCore --> SharedUtils
+        UI --> SharedUtils
+        ElectronPreload -.-> PlatformContracts
+        ElectronMain -.-> PlatformContracts
+    end
+
+    subgraph SystemSchemas ["Schemas (schemas/)"]
+        Schemas["Machine-Readable JSON Schemas<br/>- desktop-ipc.schema.json<br/>- system-diagnostics.schema.json<br/>- app-settings.schema.json"]
+        PlatformContracts -.-> Schemas
+    end

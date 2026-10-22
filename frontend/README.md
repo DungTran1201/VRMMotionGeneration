@@ -1,21 +1,28 @@
-# `frontend/` — Client Application Workspace
+# Frontend Monorepo Ecosystem
 
-## Purpose
-The `frontend/` directory contains all client-side code, user interfaces, 3D viewport components, and frontend-specific unit and integration tests. It is dedicated strictly to presentation, user interaction, local avatar rendering, and consuming backend APIs.
+This directory contains the entire client presentation layer for both the browser Single Page Application (`apps/web`) and the native desktop shell (`apps/desktop`), sharing core domain logic, contracts, and design tokens across modular packages.
 
-## What Belongs Here
-- Client application packages under `apps/` (such as `apps/web/`).
-- Static public web assets (under `public/`).
-- Client-side unit, component, and end-to-end tests (under `tests/`).
-- Format loaders and scene management for VRM and rigged glTF/GLB models.
-- Client state management and network client adapters (REST / WebSocket).
+---
 
-## What Must NOT Belong Here
-- Backend server logic, database interactions, or direct Python script executions.
-- Direct upstream research dependencies (such as PyTorch or NVIDIA MotionBricks native libraries).
-- Shared dependencies or symlinks connecting directly into `exp/`.
-- Pretrained model checkpoints or oversized binary test vectors.
+## Directory Organization
 
-## Source-of-Truth Relationship
-- UI interactions and designs must reflect canonical specifications in `models/ux/` and documentation in `docs/10-ux/`.
-- Network calls must adhere strictly to the API contracts defined in `models/api/` and `docs/07-api/`.
+```text
+frontend/
+├── apps/
+│   ├── web/                    # Browser client (Vite SPA)
+│   └── desktop/                # Desktop shell (Electron main, preload, renderer)
+├── packages/
+│   ├── platform-contracts/     # TypeScript interfaces and IPC channel schemas
+│   ├── shared/                 # Common metadata and utility functions
+│   ├── app-core/               # Platform detection, adapters, and reactive stores
+│   └── ui/                     # Shared Vue 3 components, views, and CSS tokens
+└── tests/                      # Workspace-level contract tests
+```
+
+---
+
+## Shared Architecture Principles
+
+1. **Write Once, Adapt Anywhere**: Shared UI components in `@vrm/ui` run identically in browser and Electron.
+2. **Capability Fallback**: When desktop-specific native APIs are unavailable, `@vrm/app-core` provides graceful web fallbacks without crashing.
+3. **Hardened Security**: Desktop shell enforces OS sandbox, context isolation, and disabled nodeIntegration.

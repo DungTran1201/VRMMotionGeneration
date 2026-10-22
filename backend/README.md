@@ -1,21 +1,23 @@
-# `backend/` — Backend Service & Kinematic Pipeline
+# Backend Service Zone
 
-## Purpose
-The `backend/` directory hosts server-side services, REST/WebSocket API endpoints, kinematic retargeting logic, model execution adapters, and database migrations.
+**Status**: `NOT IMPLEMENTED / OPTIONAL`
 
-## What Belongs Here
-- Application source packages under `src/`.
-- Database schema migrations under `migrations/`.
-- Automated backend unit and integration test suites under `tests/`.
-- Adapters isolating external motion generation frameworks (e.g. MotionBricks).
-- Serialization logic conforming to canonical motion schemas.
+---
 
-## What Must NOT Belong Here
-- Frontend browser scripts, WebGL render loops, or DOM manipulation libraries.
-- Direct symlinks or imports from `exp/`.
-- Checkpoint binary weights committed to version control.
-- In-place modifications to upstream vendor repositories.
+## 1. Scope and Rationale
 
-## Source-of-Truth Relationship
-- Backend APIs and endpoints must strictly implement the contracts defined in `models/api/` and `docs/07-api/`.
-- Retargeting algorithms and skeleton hierarchies must reflect specifications in `models/domain/` and `docs/06-domain/`.
+The current application foundation operates entirely as a unified client application across **Web** (SPA) and **Electron Desktop** (Native Shell).
+
+Per ADR-0001:
+- Client-side workflows, settings management, and diagnostics run locally within the application runtime.
+- No mandatory HTTP/WebSocket backend server or database is required for this base foundation.
+- To prevent artificial architectural bloat and misleading placeholder APIs, the server-side backend remains **unimplemented** until explicit business requirements mandate centralized cloud persistence, synchronization, or server-side services.
+
+---
+
+## 2. Future Extension Points
+
+If backend capabilities are introduced in future milestones:
+1. They must be governed by a dedicated ADR and OpenAPI/JSON Schema contracts in `schemas/`.
+2. Communication between `frontend/` and `backend/` must occur exclusively over documented HTTP REST or WebSocket protocols.
+3. Server-side code must reside in `backend/src/` with isolated tests in `backend/tests/`.

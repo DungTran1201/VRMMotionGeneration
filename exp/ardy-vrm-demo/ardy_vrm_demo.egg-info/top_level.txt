@@ -1,5 +1,0 @@
-MotionCorrection
-ardy
-ardy_vrm_demo
-assets
-scripts

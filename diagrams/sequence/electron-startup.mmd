@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor User as Desktop User
+    participant OS as Operating System
+    participant Main as Electron Main Process
+    participant Preload as Preload (ContextBridge)
+    participant Renderer as Renderer (Vue 3 UI)
+
+    User->>OS: Launch VRMMotionGeneration Application
+    OS->>Main: Execute Electron main binary (src/main/index.ts)
+    Main->>Main: Configure Security Policies (CSP, Navigation guards, Frame checks)
+    Main->>Main: Register typed IPC handlers (app:get-version, app:get-diagnostics, app:ping)
+    Main->>OS: Instantiate BrowserWindow with webPreferences (contextIsolation: true, nodeIntegration: false, sandbox: true)
+    Main->>Preload: Load preload script (src/preload/index.ts)
+    Preload->>Preload: Build typed DesktopAPI interface
+    Preload->>Renderer: contextBridge.exposeInMainWorld('desktopAPI', desktopAPI)
+    Main->>Renderer: Load renderer index.html
+    Renderer->>Renderer: Mount Vue 3 application (@vrm/ui)
+    Renderer->>Preload: window.desktopAPI.getDiagnostics()
+    Preload->>Main: ipcRenderer.invoke('app:get-diagnostics')
+    Main->>Main: Gather OS, memory, and architecture metrics
+    Main-->>Preload: Return verified DiagnosticsInfo
+    Preload-->>Renderer: Return typed object to Vue reactive store
+    Renderer-->>User: Render Desktop Foundation UI with verified diagnostic status

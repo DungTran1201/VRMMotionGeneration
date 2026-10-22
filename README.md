@@ -1,96 +1,137 @@
-# VRMMotionGeneration
+# VRMMotionGeneration — Web + Electron Desktop Foundation
 
-An engineering workspace for a web application dedicated to humanoid motion generation, kinematic retargeting, and real-time 3D avatar rendering (supporting VRM and rigged glTF/GLB models).
+A high-performance, type-safe monorepo foundation delivering a unified **Web application (SPA)** and **Native Desktop application (Electron)** sharing presentation components, reactive state stores, design tokens, and typed contracts.
 
-> **Important Notice: Structure & Governance Baseline**  
-> This repository is currently in a scaffold and governance baseline state. Application source code, production technology stacks, and end-to-end capabilities are **not yet implemented or chosen**. Implementation will proceed following discovery, formal Architecture Decision Records (ADRs), and canonical modeling.
+> **Important Architectural Scope Notice**
+> This repository underwent a complete architectural reset on **2026-10-22** (via branch `chore/web-electron-foundation-reset`).
+> All prior experimental lines for neural motion generation, ARDY, MotionStreamer, DiP, kinematic retargeting, model training scripts, PyTorch/CUDA dependencies, and avatar checkpoints have been **permanently purged** from the active scope.
+> The sole focus of this repository is a production-grade, secure **Web and Electron Desktop platform**.
 
 ---
 
-## Repository Layout
+## Architecture Overview
 
-```text
-VRMMotionGeneration/
-├── .gitignore                      # Environment, checkpoint, cache, and archive exclusions
-├── .agents/                        # Agent harness (rules, skills, agent profiles, configs)
-├── AGENTS.md                       # Operation Dev operating contract
-├── README.md                       # Project overview and baseline status
-├── frontend/                       # Browser/client presentation application
-│   ├── README.md
-│   ├── apps/web/README.md          # Web application package placeholder
-│   ├── public/README.md            # Static public web assets
-│   └── tests/README.md             # Client unit & component tests
-├── backend/                        # Server application, APIs, and kinematic services
-│   ├── README.md
-│   ├── src/README.md               # Backend application source placeholder
-│   ├── migrations/README.md        # Database schema migrations
-│   └── tests/README.md             # Backend unit & integration tests
-├── infra/                          # Operations, deployment, CI, and tooling
-│   ├── README.md
-│   ├── scripts/README.md           # Developer & maintenance scripts
-│   ├── ci/README.md                # Automated CI pipeline workflows
-│   ├── deployment/README.md        # Deployment manifests & container specs
-│   └── observability/README.md     # Monitoring, metrics, and health checks
-├── docs/                           # Human-readable engineering lifecycle documentation
-│   ├── README.md
-│   ├── 00-discovery/README.md      # Discovery audits & exploratory findings
-│   ├── 01-planning/README.md       # Roadmaps, milestones, and planning
-│   ├── 02-requirements/README.md   # Functional & non-functional requirements
-│   ├── 03-business-process/README.md # Business workflows & avatar lifecycles
-│   ├── 04-use-cases/README.md      # Formal use case specifications
-│   ├── 05-architecture/README.md   # System architecture & ADRs
-│   ├── 06-domain/README.md         # Kinematics, skeleton rigs, & domain models
-│   ├── 07-api/README.md            # REST & WebSocket API specifications
-│   ├── 08-behavior/README.md       # State machines & streaming lifecycle
-│   ├── 09-security/README.md       # Threat modeling & upload safety
-│   ├── 10-ux/README.md             # UI design & 3D viewport experience
-│   ├── 11-testing/README.md        # QA strategy & test matrices
-│   ├── 12-operations/README.md     # Deployment runbooks & runtime ops
-│   └── 13-governance/README.md     # Release criteria & license compliance
-├── diagrams/                       # Derived visual projections (Mermaid/SVG)
-│   ├── README.md
-│   ├── context/README.md           # System context diagrams
-│   ├── architecture/README.md      # High-level architecture diagrams
-│   ├── processes/README.md         # Workflow & process flowcharts
-│   ├── sequence/README.md          # Interaction & sequence diagrams
-│   ├── state/README.md             # State machine diagrams
-│   ├── data-flow/README.md         # Motion data flow diagrams
-│   ├── deployment/README.md        # Physical deployment diagrams
-│   └── ux/README.md                # UX navigation & wireframe flows
-├── models/                         # Canonical machine-readable specifications (YAML/JSON)
-│   ├── README.md
-│   ├── context/README.md           # Boundary & external actor schemas
-│   ├── requirements/README.md      # Machine-readable requirement models
-│   ├── process/README.md           # Machine-readable process schemas
-│   ├── architecture/README.md      # Component & interface specifications
-│   ├── domain/README.md            # Kinematic & humanoid skeleton schemas
-│   ├── api/README.md               # OpenAPI / AsyncAPI definitions
-│   ├── interaction/README.md       # Protocol & interaction schemas
-│   ├── security/README.md          # Security policy definitions
-│   ├── ux/README.md                # UI component & design token specs
-│   ├── testing/README.md           # Test vector & fixture schemas
-│   └── deployment/README.md        # Infrastructure topology models
-└── exp/                            # Standalone exploratory experiment workspace
-    ├── README.md
-    ├── AGENTS.md                   # Experiment-specific operating contract
-    ├── .gitignore                  # Experiment weight & artifact ignore rules
-    ├── experiments/README.md       # Experiment logbooks & notebooks
-    ├── scripts/README.md           # Data processing & run scripts
-    ├── environments/README.md      # Python/CUDA environment manifests
-    ├── datasets/README.md          # Dataset references & licensing rules
-    ├── checkpoints/README.md       # Model weight & checkpoint storage policy
-    ├── artifacts/README.md         # Output logs, tensors, & metrics
-    └── reports/README.md           # Experiment summary reports
+```mermaid
+graph TD
+    UserWeb[Browser Client] -->|HTTP / SPA| WebApp[frontend/apps/web]
+    UserDesktop[Desktop Client] -->|Native Shell| DesktopApp[frontend/apps/desktop]
+
+    subgraph "Frontend Monorepo (pnpm workspace)"
+        WebApp --> SharedUI[packages/ui]
+        DesktopApp --> SharedUI
+        SharedUI --> AppCore[packages/app-core]
+        DesktopApp -.->|Preload IPC| PlatformContracts[packages/platform-contracts]
+        AppCore --> PlatformContracts
+        AppCore --> SharedUtils[packages/shared]
+        SharedUI --> SharedUtils
+    end
+
+    subgraph "System Schemas"
+        PlatformContracts -.-> Schemas[schemas/]
+    end
 ```
 
 ---
 
-## Architectural Principles
+## Workspace Layout
 
-1. **Decoupled Architecture**: Strict separation between `frontend/` (client UI), `backend/` (services/APIs), and `infra/` (operations).
-2. **Canonical Models as Source of Truth**: Machine-readable models in `models/` serve as the canonical source. `docs/` provide human-readable engineering context, while `diagrams/` provide derived visual views that cite source artifacts.
-3. **Experiment Isolation**: The `exp/` directory is strictly isolated. No production code imports, shared runtime dependencies, or symlinks may connect `exp/` to the website product.
-4. **Deterministic Fixtures**: Once implemented, the application must maintain a deterministic fixture path that functions offline without GPU or model weights.
-5. **Verified Evidence**: All technical decisions, benchmark claims, and format capabilities must be supported by verifiable tests and logs.
+```text
+VRMMotionGeneration/
+├── .agents/                    # Agent harness (roles, rules, actionable skills, workflows)
+├── .github/workflows/          # CI quality gates (lint, typecheck, test, build)
+├── .gitignore                  # Environment, cache, and artifact exclusions
+├── .npmrc                      # Strict pnpm workspace configuration
+├── .node-version               # Pinned Node.js runtime (v22 / v24)
+├── AGENTS.md                   # Operation Dev operating contract
+├── README.md                   # Project overview and operational guide
+├── CHANGELOG.md                # Version history and reset notes
+├── LICENSE                     # MIT License
+├── package.json                # Workspace scripts and root test harness
+├── pnpm-workspace.yaml         # Monorepo package declarations
+├── tsconfig.base.json          # Root TypeScript strict compiler settings
+├── frontend/                   # Client presentation domain
+│   ├── apps/
+│   │   ├── web/                # Browser client (Vite SPA)
+│   │   └── desktop/            # Native desktop client (Electron 34+)
+│   └── packages/
+│       ├── platform-contracts/ # Pure TypeScript interfaces (DesktopAPI, Diagnostics)
+│       ├── shared/             # Application constants and helpers
+│       ├── app-core/           # Platform detection, state stores, and fallbacks
+│       └── ui/                 # Vue 3 components, views, and CSS design tokens
+├── backend/                    # Server domain (Explicitly NOT IMPLEMENTED / OPTIONAL)
+├── infra/                      # CI workflows and Windows packaging specifications
+├── docs/                       # Lifecycle documentation (Discovery, Architecture, Security)
+├── diagrams/                   # Derived visual Mermaid projections
+└── schemas/                    # Versioned machine-readable JSON Schema contracts
+```
 
-For developer guidelines and agent operating contracts, see [AGENTS.md](file:///c:/Users/PC/Project/VRMMotionGeneration/AGENTS.md) and [.agents/README.md](file:///c:/Users/PC/Project/VRMMotionGeneration/.agents/README.md).
+---
+
+## Technology Stack
+
+- **Framework**: [Vue 3](https://vuejs.org/) (Composition API, `<script setup lang="ts">`)
+- **Language**: [TypeScript 5.7+](https://www.typescriptlang.org/) (strict mode enforced across all packages)
+- **Bundler & Dev Server**: [Vite 6+](https://vite.dev/)
+- **Desktop Shell**: [Electron 34+](https://www.electronjs.org/) (Hardened security: Context Isolation, Sandboxed, nodeIntegration disabled)
+- **Monorepo & Package Management**: [pnpm](https://pnpm.io/) workspaces
+- **Testing**: [Vitest 3+](https://vitest.dev/) with JSDOM
+- **Code Quality**: [Prettier](https://prettier.io/) + ESLint
+
+---
+
+## Prerequisites
+
+- **Node.js**: `v20.x`, `v22.x`, or `v24.x` (Verified with `v24.18.0`)
+- **pnpm**: `v10+` or `v12+` (Verified with `12.14.0`)
+- **Git**: 2.30+
+
+---
+
+## Getting Started
+
+```bash
+# 1. Install all monorepo dependencies
+pnpm install
+
+# 2. Run the Web application in local development mode
+pnpm dev:web
+
+# 3. Run the Electron Desktop application in development mode
+pnpm dev:desktop
+
+# 4. Run TypeScript typecheck across all packages
+pnpm typecheck
+
+# 5. Run lint formatting check
+pnpm lint
+
+# 6. Run automated test suites (Vitest)
+pnpm test
+
+# 7. Build Web production distribution
+pnpm build:web
+
+# 8. Build Electron Desktop production distribution
+pnpm build:desktop
+```
+
+---
+
+## Electron Security Invariants
+
+In compliance with the [Official Electron Security Checklist](https://www.electronjs.org/docs/latest/tutorial/security/):
+
+1. **`contextIsolation = true`**: Preload scripts execute in a separate context from the web page.
+2. **`nodeIntegration = false`**: Node.js APIs are completely inaccessible in the renderer.
+3. **`sandbox = true`**: Renderer processes run inside an OS sandbox.
+4. **`webSecurity = true`**: Standard same-origin policy is strictly enforced.
+5. **Typed IPC Bridge**: Only strongly typed channels (`app:get-version`, `app:get-diagnostics`, `app:ping`) are exposed through `window.desktopAPI`.
+6. **Navigation Guard**: External URLs are intercepted and opened exclusively via `shell.openExternal`.
+
+For details, see [Electron Security Baseline](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/04-security/electron-security-baseline.md).
+
+---
+
+## License
+
+This project is licensed under the [MIT License](file:///c:/Users/PC/Project/VRMMotionGeneration/LICENSE).

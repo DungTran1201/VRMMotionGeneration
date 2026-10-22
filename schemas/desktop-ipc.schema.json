@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vrmmotiongeneration.local/schemas/desktop-ipc.schema.json",
+  "title": "DesktopIPCSchema",
+  "description": "Validation schema for Electron IPC channels and invocation payloads",
+  "type": "object",
+  "required": ["channel"],
+  "properties": {
+    "channel": {
+      "type": "string",
+      "enum": ["app:get-version", "app:get-diagnostics", "app:ping"]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
