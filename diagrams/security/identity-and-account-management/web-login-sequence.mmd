@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor User as Web User
+    participant Browser as Web Browser (apps/web)
+    participant Gateway as API Gateway / Rate Limiter
+    participant AuthService as Identity & Auth Service
+    participant PasswordEngine as Argon2id Engine
+    participant Database as PostgreSQL Database
+    participant Redis as Redis Session Cache
+
+    User->>Browser: Enters email and password, clicks "Sign In"
+    Browser->>Gateway: POST /api/v1/auth/login { email, password }
+    
+    Gateway->>Redis: Check IP & email rate limit (Sliding window)
+    alt Rate Limit Exceeded
+        Gateway-->>Browser: HTTP 429 Too Many Requests (Retry-After)
+        Browser-->>User: Display temporary cooldown message
+    else Within Quota
+        Gateway->>AuthService: Forward login request
+        AuthService->>Database: SELECT id, password_hash, status FROM users WHERE email = :email
+        alt User Not Found
+            AuthService->>PasswordEngine: Execute dummy hash (Timing attack equalization)
+            AuthService-->>Gateway: HTTP 401 Unauthorized ("Invalid email or password")
+            Gateway-->>Browser: HTTP 401 Unauthorized
+            Browser-->>User: Display generic error message
+        else User Found
+            AuthService->>PasswordEngine: Verify password (Argon2id)
+            alt Password Mismatch
+                AuthService->>Redis: Increment failed login attempts for IP/email
+                AuthService-->>Gateway: HTTP 401 Unauthorized ("Invalid email or password")
+                Gateway-->>Browser: HTTP 401 Unauthorized
+                Browser-->>User: Display generic error message
+            else Password Correct
+                AuthService->>Redis: Reset failed login attempts
+                AuthService->>AuthService: Generate fresh session token & CSRF secret
+                AuthService->>Database: INSERT into sessions (user_id, token_hash, client_type='web')
+                AuthService->>Redis: SET session:<token_hash> (user_id, csrf_secret, TTL=24h)
+                
+                AuthService-->>Gateway: HTTP 200 OK + Set-Cookie (sid) + X-CSRF-Token
+                Gateway-->>Browser: HTTP 200 OK (Set-Cookie: sid=...; HttpOnly; Secure; SameSite=Lax)
+                Browser->>Browser: Store CSRF token in memory; zero token in localStorage
+                Browser-->>User: Redirect to Overview Dashboard
+            end
+        end
+    end

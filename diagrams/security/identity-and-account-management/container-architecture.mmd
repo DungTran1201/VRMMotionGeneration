@@ -1,0 +1,44 @@
+graph TB
+    subgraph ClientContainer ["Client Devices & Runtimes"]
+        subgraph BrowserBox ["Web Browser Environment"]
+            WebSPA["Vue 3 Single-Page App<br/>- Memory-Only CSRF Token<br/>- Zero LocalStorage Tokens"]
+        end
+
+        subgraph DesktopBox ["Desktop Operating System"]
+            ElectronRenderer["Sandboxed Renderer (Vue 3)<br/>contextIsolation: true"]
+            PreloadBridge["Preload Script<br/>contextBridge.exposeInMainWorld"]
+            ElectronMain["Electron Main Process<br/>Node.js Runtime + HTTPS Client"]
+            SafeStorage["OS Credential Vault (safeStorage)<br/>Windows DPAPI / macOS Keychain"]
+
+            ElectronRenderer -->|"Typed IPC Call"| PreloadBridge
+            PreloadBridge -->|"IPC Channel Allowlist"| ElectronMain
+            ElectronMain <-->|"Encrypt / Decrypt Refresh Token"| SafeStorage
+        end
+    end
+
+    subgraph EdgeContainer ["Edge / Gateway"]
+        Gateway["API Gateway / Reverse Proxy<br/>- Nginx / Cloudflare / Envoy<br/>- Request Validation & TLS"]
+    end
+
+    subgraph ServiceContainer ["Identity Service Container"]
+        AuthRouter["REST API Router (/api/v1)"]
+        AuthMiddleware["Security & Auth Middleware<br/>- Rate Limiter<br/>- CSRF Validator<br/>- Session Resolver"]
+        AuthService["Auth & Account Core Service<br/>- Argon2id Password Engine<br/>- Token Authority"]
+        VaultService["Secrets Vault Service<br/>- Envelope Encryption (AES-GCM)"]
+
+        AuthRouter --> AuthMiddleware
+        AuthMiddleware --> AuthService
+        AuthRouter --> VaultService
+    end
+
+    subgraph PersistenceContainer ["Persistence Layer"]
+        RedisCluster[("Redis Cluster<br/>Session Cache & Sliding Limiters")]
+        PostgresPrimary[("PostgreSQL Database<br/>Acid Transaction Store")]
+    end
+
+    WebSPA -->|"HTTPS + HttpOnly Cookie"| Gateway
+    ElectronMain -->|"HTTPS + Bearer Token"| Gateway
+    Gateway -->|"Reverse Proxy"| AuthRouter
+    AuthMiddleware <-->|"Read/Write Session"| RedisCluster
+    AuthService <-->|"Read/Write User & Session"| PostgresPrimary
+    VaultService <-->|"Store Encrypted Secrets"| PostgresPrimary

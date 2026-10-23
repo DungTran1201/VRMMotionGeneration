@@ -1,0 +1,44 @@
+graph TB
+    subgraph UntrustedZone ["Untrusted Public Zone (Internet)"]
+        Attacker["Adversary / Botnet<br/>- Credential Stuffing (TM-01)<br/>- Account Squatting (TM-02)<br/>- Email Bombing (TM-03)"]
+        LegitUser["Legitimate User (Web / Electron)"]
+    end
+
+    subgraph TrustBoundary1 ["Trust Boundary 1: Perimeter"]
+        EdgeWAF["Edge Reverse Proxy / WAF<br/>- Cloudflare DDoS Mitigation<br/>- TLS 1.3 Termination<br/>- IP /24 Prefix Rate Limiting"]
+    end
+
+    subgraph TrustBoundary2 ["Trust Boundary 2: Application Entry"]
+        AuthGateway["API Gateway & Identity Service<br/>- CSRF Filter (TM-06)<br/>- XSS Protection / Strict CSP (TM-07)<br/>- BOLA / IDOR Verification (TM-08)<br/>- Argon2id Hashing Engine"]
+    end
+
+    subgraph TrustBoundary3 ["Trust Boundary 3: Internal Data Zone"]
+        RedisStore[("Redis Cluster<br/>- Sliding Window Rate Limits<br/>- Session Cache")]
+        PostgresDB[("PostgreSQL Database<br/>- Salted Argon2id Hashes<br/>- Envelope Encrypted Vault (TM-11)<br/>- Zero Verification Flags")]
+    end
+
+    subgraph TrustBoundary4 ["Trust Boundary 4: External Services"]
+        KMS["Cloud KMS Service (Hardware HSM)<br/>Master Key Protection"]
+        EmailService["Transactional Email API<br/>Password Reset Dispatch ONLY"]
+    end
+
+    subgraph TrustBoundary5 ["Trust Boundary 5: Host Desktop Client"]
+        ElectronRenderer["Sandboxed Renderer (Vue 3)<br/>contextIsolation: true (TM-09)"]
+        PreloadScript["Preload Script (desktopAPI bridge)"]
+        ElectronMain["Electron Main Process (Node.js)"]
+        HostVault["OS safeStorage (DPAPI / Keychain)<br/>Encrypted Refresh Token (TM-10)"]
+
+        ElectronRenderer -->|"Typed IPC"| PreloadScript
+        PreloadScript -->|"Sanitized IPC Call"| ElectronMain
+        ElectronMain <-->|"Encrypted Buffers"| HostVault
+    end
+
+    Attacker -->|"Malicious Traffic"| EdgeWAF
+    LegitUser -->|"HTTPS Traffic"| EdgeWAF
+    ElectronMain -->|"HTTPS Bearer API Calls"| EdgeWAF
+    EdgeWAF -->|"Sanitized Upstream"| AuthGateway
+
+    AuthGateway <-->|"Session Read/Write"| RedisStore
+    AuthGateway <-->|"Persistent Queries"| PostgresDB
+    AuthGateway <-->|"DEK Unwrapping"| KMS
+    AuthGateway -->|"Reset Links Only"| EmailService

@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Web or Desktop)
+    participant Client as Client Application
+    participant Gateway as API Gateway / Rate Limiter
+    participant AuthService as Identity & Auth Service
+    participant PasswordEngine as Argon2id Engine
+    participant Database as PostgreSQL Database
+    participant Redis as Redis Session Store
+
+    Note over User,Client: Registration Flow: STRICTLY NO EMAIL VERIFICATION GATE
+    User->>Client: Enters email and password (min 15 chars)
+    Client->>Client: Client-side validation (regex, length >= 15)<br/>Displays warning: "Email is self-asserted & unverified"
+    Client->>Gateway: POST /api/v1/auth/register { email, password, displayName }
+    
+    Gateway->>Gateway: Check IP /24 rate limit (Max 5 / hour)
+    alt Rate Limit Exceeded
+        Gateway-->>Client: HTTP 429 Too Many Requests (Retry-After)
+        Client-->>User: Display rate limit alert
+    else Allowed
+        Gateway->>AuthService: Forward registration payload
+        AuthService->>Database: Query existing user by normalized email
+        alt Email Already Registered
+            AuthService->>PasswordEngine: Dummy Argon2id hash (Normalize timing)
+            AuthService-->>Gateway: HTTP 409 Conflict (Generic error format)
+            Gateway-->>Client: HTTP 409 Conflict ("Registration failed")
+            Client-->>User: Display generic error message
+        else Email Available
+            AuthService->>PasswordEngine: Hash password (Argon2id: m=64MB, t=3, p=4)
+            PasswordEngine-->>AuthService: Return password_hash
+            AuthService->>Database: INSERT into users (email, password_hash, status='active')
+            AuthService->>Database: INSERT into user_profiles (display_name, locale, timezone)
+            
+            Note over AuthService: CRITICAL: ZERO verification email or token generated
+            
+            AuthService->>AuthService: Generate 128-bit CSPRNG session token
+            AuthService->>Database: INSERT into sessions (user_id, token_hash, client_type)
+            AuthService->>Redis: Cache session token (TTL: 24h/7d)
+            
+            AuthService-->>Gateway: HTTP 201 Created (User Profile + Session Cookie / Tokens)
+            Gateway-->>Client: HTTP 201 Created
+            Client-->>User: Account active immediately; redirect to Dashboard
+        end
+    end

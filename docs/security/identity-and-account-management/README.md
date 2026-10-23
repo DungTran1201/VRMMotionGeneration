@@ -1,0 +1,43 @@
+# Authentication & Account Management Architecture Index
+
+This directory houses the comprehensive architectural specifications, technical requirements, security controls, API definitions, data models, threat analyses, and operational runbooks for the **Authentication & Account Management** system across the Web client (`apps/web`) and Electron Desktop client (`apps/desktop`).
+
+> [!IMPORTANT]
+> **Definitive Product Invariant**: Email verification is **strictly eliminated** from user registration and login workflows. Accounts activate immediately upon registration without confirmation links, OTPs, or verification tokens. Emails are classified and displayed as unverified, self-asserted contact identifiers. Password reset via email is an independent recovery flow and does not enforce registration verification.
+
+---
+
+## 1. Documentation Suite Navigation
+
+| Document                                                                                                                                                                                   | Title                              | Primary Focus                                                                                              | Status     |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------- | :--------------------------------------------------------------------------------------------------------- | :--------- |
+| [**`01-business-requirements.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/01-business-requirements.md)                             | Business Requirements & Scope      | Product goals, actors, user stories, no-verification risk analysis, identifier trade-offs.                 | `PROPOSED` |
+| [**`02-srs-auth-account.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/02-srs-auth-account.md)                                       | Software Requirements (SRS)        | Traceable functional (FR), non-functional (NFR), and security (SEC) requirements with acceptance criteria. | `PROPOSED` |
+| [**`03-user-flows-and-use-cases.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/03-user-flows-and-use-cases.md)                       | User Flows & Use Cases             | Happy paths, failure paths, progressive delays, password reset lifecycle, account deletion.                | `PROPOSED` |
+| [**`04-authentication-session-architecture.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/04-authentication-session-architecture.md) | Session & Identity Architecture    | Shared identity, Web Cookie BFF vs Electron safeStorage, token rotation, CSRF defense.                     | `PROPOSED` |
+| [**`05-account-data-model.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/05-account-data-model.md)                                   | Account Data Model & Schemas       | PostgreSQL DDL, ERD, indexes, TTL purge policies, PII classification matrix (Zero verification fields).    | `PROPOSED` |
+| [**`06-api-contract.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/06-api-contract.md)                                               | REST API Contract Specification    | Endpoint catalogue, request/response models, generic error envelopes, rate limit headers.                  | `PROPOSED` |
+| [**`openapi.yaml`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/openapi.yaml)                                                           | OpenAPI 3.1 Specification          | Machine-readable API specification with common error schemas and correlation tracking.                     | `PROPOSED` |
+| [**`07-security-controls.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/07-security-controls.md)                                     | Security Controls & Anti-Abuse     | Argon2id hashing, NIST password rules, multi-layer rate-limit matrix, envelope encryption.                 | `PROPOSED` |
+| [**`08-threat-model.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/08-threat-model.md)                                               | Threat Model & Abuse Cases         | STRIDE threat matrix, trust boundaries, credential stuffing, email bombing, residual risks.                | `PROPOSED` |
+| [**`09-test-plan.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/09-test-plan.md)                                                     | Quality Assurance & Test Plan      | Functional, negative, security, Electron hardening, parity, and accessibility test suites.                 | `PROPOSED` |
+| [**`10-operations-and-incident-response.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/10-operations-and-incident-response.md)       | Operations & Incident Response     | Prometheus metrics, alert thresholds, dynamic rate-limit tuning, secret rotation playbooks.                | `PROPOSED` |
+| [**`11-decisions-and-open-questions.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/11-decisions-and-open-questions.md)               | Decisions & Open Questions         | Formal ADR summaries, trade-off analyses, open questions for Product & Security owners.                    | `PROPOSED` |
+| [**`12-references.md`**](file:///c:/Users/PC/Project/VRMMotionGeneration/docs/security/identity-and-account-management/12-references.md)                                                   | Normative & Informative References | Authoritative standards (NIST SP 800-63B-4, RFC 9700, RFC 10017, OWASP Cheat Sheets).                      | `VERIFIED` |
+
+---
+
+## 2. Associated Architectural Diagrams
+
+The corresponding visual models are maintained as version-controlled Mermaid (`.mmd`) source files in [`diagrams/security/identity-and-account-management/`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management):
+
+1. **[`system-context.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/system-context.mmd)**: System context model linking Web, Desktop, Identity API, Database, Redis, and External KMS.
+2. **[`container-architecture.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/container-architecture.mmd)**: Container topology, process boundaries, and protocols.
+3. **[`registration-sequence.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/registration-sequence.mmd)**: Direct registration sequence (zero email verification step).
+4. **[`web-login-sequence.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/web-login-sequence.mmd)**: Web browser login with `HttpOnly` cookie and CSRF token delivery.
+5. **[`electron-login-sequence.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/electron-login-sequence.mmd)**: Electron native IPC auth and `safeStorage` credential encryption.
+6. **[`password-reset-sequence.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/password-reset-sequence.mmd)**: Password recovery via ephemeral token and global session revocation.
+7. **[`account-management-sequence.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/account-management-sequence.mmd)**: Profile updates, password changes, and remote session revocation.
+8. **[`api-rate-limit-flow.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/api-rate-limit-flow.mmd)**: Gateway sliding window rate limiting and progressive delay evaluation.
+9. **[`session-lifecycle-state.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/session-lifecycle-state.mmd)**: State transition machine for session states (active, idle, absolute expired, revoked).
+10. **[`threat-trust-boundaries.mmd`](file:///c:/Users/PC/Project/VRMMotionGeneration/diagrams/security/identity-and-account-management/threat-trust-boundaries.mmd)**: STRIDE trust boundaries and threat injection points.

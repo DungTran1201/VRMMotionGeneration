@@ -1,0 +1,29 @@
+graph TB
+    subgraph Clients ["Client Applications"]
+        WebClient["Web Browser Client<br/>(Vue 3 SPA)"]
+        DesktopClient["Electron Desktop Shell<br/>(Cross-Platform)"]
+    end
+
+    subgraph Perimeter ["Edge & Security Perimeter"]
+        WAF["Edge Reverse Proxy / WAF<br/>- Cloudflare / Envoy<br/>- TLS 1.3 Termination<br/>- Edge Rate Limiting"]
+    end
+
+    subgraph CoreBackend ["Core Identity & Application Infrastructure"]
+        IdentityAPI["Identity & Auth Backend Service<br/>- Authentication & Session Authority<br/>- Password Engine (Argon2id)<br/>- CSRF & Rate Limiting Engine"]
+        RedisStore[("Redis Distributed Store<br/>- Sliding Session Cache<br/>- Rate Limit Windows<br/>- Progressive Delays")]
+        PostgresDB[("PostgreSQL Relational DB<br/>- users & user_profiles<br/>- persistent sessions<br/>- password_reset_tokens<br/>- user_secrets_vault")]
+    end
+
+    subgraph ExternalServices ["External Infrastructure & Cloud Providers"]
+        CloudKMS["Cloud Key Management Service (KMS)<br/>- Master Key for Envelope Encryption<br/>- Hardware Security Module (HSM)"]
+        MailProvider["Transactional Email Provider<br/>- Password Reset Dispatch ONLY<br/>- Strictly No Verification Emails"]
+    end
+
+    WebClient -->|"HTTPS / Cookie (SameSite=Lax) + X-CSRF-Token"| WAF
+    DesktopClient -->|"HTTPS / Bearer Access Token"| WAF
+    WAF -->|"Internal TLS / Forwarded Headers"| IdentityAPI
+
+    IdentityAPI -->|"Session Validation & Rate Check (< 5ms)"| RedisStore
+    IdentityAPI -->|"Persistent Credential & Profile Data"| PostgresDB
+    IdentityAPI -->|"DEK Generation & Unwrapping"| CloudKMS
+    IdentityAPI -->|"Dispatch 15-Minute Reset Links"| MailProvider

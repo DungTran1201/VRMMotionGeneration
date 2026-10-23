@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor User as Desktop User
+    participant Renderer as Sandboxed Renderer (Vue 3)
+    participant Preload as Preload Script (desktopAPI)
+    participant Main as Electron Main Process (Node.js)
+    participant SafeStore as OS Credential Vault (safeStorage)
+    participant Gateway as API Gateway / Backend
+
+    User->>Renderer: Enters email and password in desktop view
+    Renderer->>Preload: window.desktopAPI.auth.login(credentials)
+    Preload->>Preload: Validate payload schema (Zero Node APIs exposed)
+    Preload->>Main: ipcRenderer.invoke('app:auth-login', credentials)
+    
+    Main->>Main: Verify senderFrame & origin
+    Main->>Gateway: HTTPS POST /api/v1/auth/desktop-login { email, password, deviceName }
+    
+    alt Credentials Invalid
+        Gateway-->>Main: HTTP 401 Unauthorized ("Invalid email or password")
+        Main-->>Preload: Error response
+        Preload-->>Renderer: Error response
+        Renderer-->>User: Display generic failure message
+    else Authentication Successful
+        Gateway-->>Main: HTTP 200 OK { accessToken (15m), refreshToken (90d), user }
+        
+        Main->>Main: Retain accessToken in memory only
+        Main->>SafeStore: safeStorage.encryptString(refreshToken)
+        SafeStore-->>Main: Return encryptedBuffer (DPAPI / Keychain)
+        Main->>Main: Write encryptedBuffer to %APPDATA%/vrm-desktop/session.enc (mode 0600)
+        
+        Main-->>Preload: Return user profile (Omitting raw refreshToken)
+        Preload-->>Renderer: Return user profile
+        Renderer->>Renderer: Update authenticated state in @vrm/app-core store
+        Renderer-->>User: Navigate to Desktop Main View
+    end

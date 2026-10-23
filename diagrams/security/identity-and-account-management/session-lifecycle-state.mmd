@@ -1,0 +1,26 @@
+stateDiagram-v2
+    [*] --> Unauthenticated: Client Starts
+
+    Unauthenticated --> Active: Direct Registration (Instant Activation)<br/>or Credential Login
+    
+    state Active {
+        [*] --> NominalSession
+        NominalSession --> SlidingRenewal: API Request Received<br/>Update last_seen_at & idle_expires_at
+        SlidingRenewal --> NominalSession
+        NominalSession --> TokenRotated: Refresh Token Exchanged (Desktop)<br/>or Privilege Changed
+        TokenRotated --> NominalSession
+    }
+
+    Active --> IdleExpired: Inactivity Duration Exceeded<br/>(24 Hours Web / 7 Days Desktop)
+    Active --> AbsoluteExpired: Absolute Lifetime Exceeded<br/>(30 Days Web / 90 Days Desktop)
+    Active --> RevokedByUser: User Clicks Logout (Current Device)<br/>or Remote Session Revoked
+    Active --> RevokedGlobal: Global Logout All Devices<br/>or Password Reset Completed
+    Active --> CompromisedRevocation: Refresh Token Replay Detected<br/>(Family Revocation Triggered)
+
+    IdleExpired --> Unauthenticated: Prompt Re-authentication
+    AbsoluteExpired --> Unauthenticated: Force Full Login
+    RevokedByUser --> Unauthenticated: Delete Local Session State
+    RevokedGlobal --> Unauthenticated: Invalidate Cache on All Clients
+    CompromisedRevocation --> Unauthenticated: Lock Account & Dispatch Security Alert
+
+    Unauthenticated --> [*]: App Exit / Window Closed

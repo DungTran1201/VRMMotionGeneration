@@ -1,0 +1,21 @@
+flowchart TD
+    Start(["Incoming HTTP Request"]) --> ExtractKeys["Extract Rate-Limit Keys<br/>- Client IP /24 Subnet Prefix<br/>- Normalized Email / Account Identifier<br/>- Route / Endpoint Class"]
+    
+    ExtractKeys --> QueryRedis["Query Redis Sliding Window Counter<br/>(Atomic ZREMRANGEBYSCORE + ZADD + ZCARD)"]
+    
+    QueryRedis --> CheckLimit{"Current Window Count<br/>> Allowed Threshold?"}
+    
+    CheckLimit -- "YES (Quota Exceeded)" --> Emit429["Construct HTTP 429 Too Many Requests<br/>- Set 'Retry-After: <seconds>' Header<br/>- Set 'X-RateLimit-Remaining: 0'"]
+    Emit429 --> LogAbuse["Log Security Alert Event<br/>Increment 'auth_rate_limit_exceeded_total'"]
+    LogAbuse --> EndResponse(["Return HTTP 429 to Client"])
+    
+    CheckLimit -- "NO (Within Quota)" --> CheckProgressive{"Endpoint == '/auth/login'<br/>AND Consecutive Fails >= 3?"}
+    
+    CheckProgressive -- "YES" --> ApplyDelay["Apply Progressive Exponential Delay<br/>(1s, 2s, 4s sleep before processing)"]
+    ApplyDelay --> ExecHandler["Forward Request to Controller Handler"]
+    
+    CheckProgressive -- "NO" --> ExecHandler
+    
+    ExecHandler --> ProcessLogic["Execute Authentication / Database Operations"]
+    ProcessLogic --> InjectHeaders["Inject Rate-Limit Headers<br/>- X-RateLimit-Limit: <Max><br/>- X-RateLimit-Remaining: <Budget><br/>- X-RateLimit-Reset: <Timestamp>"]
+    InjectHeaders --> SuccessEnd(["Return Final HTTP Response (200 / 201 / 401)"])

@@ -1,0 +1,652 @@
+openapi: 3.1.0
+info:
+  title: VRM Auth & Account Management API
+  version: 1.0.0
+  description: >-
+    Authoritative proposed OpenAPI 3.1 specification for Authentication, Account Management,
+    Session Control, and User Secrets Vault across Web and Electron Desktop clients.
+    Email verification is strictly eliminated from registration and login.
+servers:
+  - url: https://auth.vrm.app/api/v1
+    description: Production Environment (Proposed)
+  - url: http://localhost:8080/api/v1
+    description: Local Development Environment (Proposed)
+
+paths:
+  /auth/register:
+    post:
+      summary: Direct Account Registration (No Email Verification)
+      operationId: registerUser
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created and active immediately.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse400"
+        "409":
+          $ref: "#/components/responses/ErrorResponse409"
+        "429":
+          $ref: "#/components/responses/ErrorResponse429"
+
+  /auth/login:
+    post:
+      summary: Web Client Login (Sets HttpOnly Session Cookie)
+      operationId: loginWeb
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in successfully.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "sid=c2Vzc2lvbl90b2tlbg==; Path=/; HttpOnly; Secure; SameSite=Lax"
+            X-CSRF-Token:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebLoginResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse401"
+        "429":
+          $ref: "#/components/responses/ErrorResponse429"
+
+  /auth/desktop-login:
+    post:
+      summary: Electron Desktop Direct Login
+      operationId: loginDesktop
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesktopLoginRequest"
+      responses:
+        "200":
+          description: Desktop authenticated; returns access JWT and opaque refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesktopAuthResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse401"
+        "429":
+          $ref: "#/components/responses/ErrorResponse429"
+
+  /auth/desktop-refresh:
+    post:
+      summary: Desktop Token Refresh (Sliding Rotation)
+      operationId: refreshDesktopToken
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: Rotated token pair issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesktopRefreshResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse401"
+
+  /auth/logout:
+    post:
+      summary: Single-Device Logout
+      operationId: logout
+      tags: [Authentication]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Session terminated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/logout-all:
+    post:
+      summary: Global Logout (Revoke All Devices)
+      operationId: logoutAll
+      tags: [Authentication]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All sessions revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/forgot-password:
+    post:
+      summary: Request Password Reset Link (Sent to Unverified Email)
+      operationId: forgotPassword
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Generic anti-enumeration response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/reset-password:
+    post:
+      summary: Execute Password Reset
+      operationId: resetPassword
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 15
+                  maxLength: 128
+      responses:
+        "200":
+          description: Password updated and prior sessions revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse400"
+
+  /users/me:
+    get:
+      summary: Get Current User Profile
+      operationId: getMe
+      tags: [Account Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse401"
+    patch:
+      summary: Update Profile Attributes
+      operationId: updateMe
+      tags: [Account Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+
+  /users/me/change-password:
+    post:
+      summary: Change Password (Requires Current Password Verification)
+      operationId: changePassword
+      tags: [Account Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 15
+                  maxLength: 128
+                revokeOtherSessions:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse401"
+
+  /users/me/sessions:
+    get:
+      summary: List Active Sessions
+      operationId: listSessions
+      tags: [Session Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionItem"
+
+  /users/me/sessions/{sessionId}:
+    delete:
+      summary: Revoke Remote Session
+      operationId: revokeSession
+      tags: [Session Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /users/me/delete:
+    post:
+      summary: Self-Service Account Deletion
+      operationId: deleteAccount
+      tags: [Account Management]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, confirmationPhrase]
+              properties:
+                currentPassword:
+                  type: string
+                confirmationPhrase:
+                  type: string
+                  enum: ["DELETE MY ACCOUNT"]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /users/me/secrets:
+    get:
+      summary: List AI Provider Keys (Masked Metadata)
+      operationId: listProviderSecrets
+      tags: [User Secrets Vault]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secrets:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SecretItem"
+    post:
+      summary: Store or Rotate AI Provider Key (Envelope Encrypted)
+      operationId: storeProviderSecret
+      tags: [User Secrets Vault]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, apiKey]
+              properties:
+                provider:
+                  type: string
+                  enum: [gemini, openai, anthropic]
+                apiKey:
+                  type: string
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretItem"
+
+  /users/me/secrets/{provider}:
+    delete:
+      summary: Delete AI Provider Key
+      operationId: deleteProviderSecret
+      tags: [User Secrets Vault]
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [gemini, openai, anthropic]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+components:
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 15
+          maxLength: 128
+        displayName:
+          type: string
+          maxLength: 64
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    DesktopLoginRequest:
+      type: object
+      required: [email, password, deviceName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        deviceName:
+          type: string
+          maxLength: 128
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserRecord"
+        profile:
+          $ref: "#/components/schemas/ProfileRecord"
+
+    WebLoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserRecord"
+        csrfToken:
+          type: string
+
+    DesktopAuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 900
+        refreshToken:
+          type: string
+        refreshExpiresIn:
+          type: integer
+          example: 7776000
+        user:
+          $ref: "#/components/schemas/UserRecord"
+
+    DesktopRefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+        refreshToken:
+          type: string
+
+    UserRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        emailVerified:
+          type: boolean
+          example: false
+          description: Always false by design; email is unverified.
+        emailStatusNotice:
+          type: string
+          example: "Email address is self-asserted and unverified."
+        createdAt:
+          type: string
+          format: date-time
+
+    ProfileRecord:
+      type: object
+      properties:
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        locale:
+          type: string
+        timezone:
+          type: string
+
+    UserProfileResponse:
+      allOf:
+        - $ref: "#/components/schemas/UserRecord"
+        - type: object
+          properties:
+            profile:
+              $ref: "#/components/schemas/ProfileRecord"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 64
+        avatarUrl:
+          type: string
+        locale:
+          type: string
+        timezone:
+          type: string
+
+    SessionItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientType:
+          type: string
+          enum: [web, desktop]
+        deviceName:
+          type: string
+        ipSubnet:
+          type: string
+          example: "198.51.100.0/24"
+        isCurrent:
+          type: boolean
+        lastSeenAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SecretItem:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [gemini, openai, anthropic]
+        keyHint:
+          type: string
+          example: "...4a2f"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      required: [error, message, correlationId, timestamp]
+      properties:
+        error:
+          type: string
+          example: "invalid_credentials"
+        message:
+          type: string
+          example: "Invalid email or password"
+        correlationId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    ErrorResponse400:
+      description: Bad Request / Validation Failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ErrorResponse401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ErrorResponse409:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ErrorResponse429:
+      description: Too Many Requests (Rate limit exceeded)
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Number of seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

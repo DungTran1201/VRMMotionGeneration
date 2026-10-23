@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor User as Authenticated User
+    participant Client as Web / Desktop Client
+    participant Gateway as API Gateway / Auth Middleware
+    participant AccountService as Account & Profile Service
+    participant Database as PostgreSQL Database
+    participant Redis as Redis Session Cache
+
+    Note over User,Database: Flow A: Self-Service Password Change (Re-Authentication)
+    User->>Client: Enters currentPassword and newPassword (min 15 chars)
+    Client->>Gateway: POST /api/v1/users/me/change-password { currentPassword, newPassword }
+    Gateway->>AccountService: Forward with authenticated session context (userId)
+    
+    AccountService->>Database: SELECT password_hash FROM users WHERE id = :userId
+    AccountService->>AccountService: Verify currentPassword via Argon2id
+    alt Current Password Incorrect
+        AccountService-->>Gateway: HTTP 401 Unauthorized ("Invalid current password")
+        Gateway-->>Client: HTTP 401 Unauthorized
+        Client-->>User: Display error message
+    else Current Password Valid
+        AccountService->>AccountService: Hash newPassword via Argon2id
+        AccountService->>Database: UPDATE users SET password_hash = :newHash WHERE id = :userId
+        AccountService->>Database: UPDATE sessions SET revoked_at = NOW() WHERE user_id = :userId AND id != :currentSessionId
+        AccountService->>Redis: Invalidate other cached sessions
+        AccountService-->>Gateway: HTTP 200 OK ("Password updated successfully")
+        Gateway-->>Client: HTTP 200 OK
+        Client-->>User: Confirm password change; other devices logged out
+    end
+
+    Note over User,Database: Flow B: Remote Session Revocation
+    User->>Client: Views active devices, clicks "Revoke Session" for Remote Device
+    Client->>Gateway: DELETE /api/v1/users/me/sessions/:remoteSessionId
+    Gateway->>AccountService: Forward with authenticated userId
+    AccountService->>Database: SELECT user_id FROM sessions WHERE id = :remoteSessionId
+    alt BOLA Check: Session does not belong to requesting user
+        AccountService-->>Gateway: HTTP 404 Not Found / 403 Forbidden
+        Gateway-->>Client: Rejection
+    else Ownership Verified
+        AccountService->>Database: UPDATE sessions SET revoked_at = NOW() WHERE id = :remoteSessionId
+        AccountService->>Redis: DEL session:<remoteTokenHash>
+        AccountService-->>Gateway: HTTP 200 OK ("Session revoked")
+        Gateway-->>Client: HTTP 200 OK
+        Client-->>User: Remove device from active list; remote client terminated immediately
+    end
