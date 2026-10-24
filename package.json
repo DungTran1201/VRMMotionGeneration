@@ -4,6 +4,7 @@
   "private": true,
   "description": "Unified Web + Electron Desktop Monorepo Foundation",
   "scripts": {
+    "dev:backend": "pnpm --filter @vrm/backend dev",
     "dev:web": "pnpm --filter @vrm/web dev",
     "dev:desktop": "pnpm --filter @vrm/desktop dev",
     "build:web": "pnpm --filter @vrm/web build",

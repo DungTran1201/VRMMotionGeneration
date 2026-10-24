@@ -55,3 +55,10 @@ __pycache__/
 
 # Local backup archives
 *_backup*/
+
+# Local SQLite databases
+backend/data/
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
