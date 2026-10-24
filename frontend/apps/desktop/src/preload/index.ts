@@ -15,6 +15,13 @@ const desktopAPI: DesktopAPI = {
   ping: (): Promise<string> => {
     return ipcRenderer.invoke(IPC_CHANNELS.PING);
   },
+  auth: {
+    login: (credentials) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGIN, credentials),
+    logout: () => ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT),
+    getStoredSession: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_GET_STORED_SESSION),
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopAPI", desktopAPI);

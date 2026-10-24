@@ -1,12 +1,24 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { useAppStore } from "@vrm/app-core";
 import { APP_METADATA } from "@vrm/shared";
 import NavigationBar from "./NavigationBar.vue";
 import OverviewView from "../views/OverviewView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import DiagnosticsView from "../views/DiagnosticsView.vue";
+import SignInView from "../views/SignInView.vue";
+import SignUpView from "../views/SignUpView.vue";
+import ForgotPasswordView from "../views/ForgotPasswordView.vue";
+import ResetPasswordView from "../views/ResetPasswordView.vue";
+import ProfileView from "../views/ProfileView.vue";
+import SecurityView from "../views/SecurityView.vue";
+import SecretsView from "../views/SecretsView.vue";
 
 const store = useAppStore();
+
+onMounted(() => {
+  store.initAuth();
+});
 </script>
 
 <template>
@@ -15,6 +27,17 @@ const store = useAppStore();
 
     <main class="shell-main" role="main">
       <OverviewView v-if="store.state.currentTab === 'overview'" />
+      <ProfileView v-else-if="store.state.currentTab === 'profile'" />
+      <SecurityView v-else-if="store.state.currentTab === 'security'" />
+      <SecretsView v-else-if="store.state.currentTab === 'secrets'" />
+      <SignInView v-else-if="store.state.currentTab === 'signin'" />
+      <SignUpView v-else-if="store.state.currentTab === 'signup'" />
+      <ForgotPasswordView
+        v-else-if="store.state.currentTab === 'forgot-password'"
+      />
+      <ResetPasswordView
+        v-else-if="store.state.currentTab === 'reset-password'"
+      />
       <SettingsView v-else-if="store.state.currentTab === 'settings'" />
       <DiagnosticsView v-else-if="store.state.currentTab === 'diagnostics'" />
     </main>

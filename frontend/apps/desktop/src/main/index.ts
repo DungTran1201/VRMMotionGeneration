@@ -85,6 +85,90 @@ function registerIpcHandlers(): void {
     }
     return "pong:electron-main";
   });
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_LOGIN, async (event, credentials) => {
+    if (!validateIpcSender(event.sender, mainWindow)) {
+      throw new Error("Unauthorized IPC sender");
+    }
+    const apiBaseUrl =
+      process.env["VITE_API_BASE_URL"] || "http://127.0.0.1:3000";
+    const res = await fetch(`${apiBaseUrl}/api/v1/auth/desktop-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: credentials.email,
+        password: credentials.password,
+        deviceName: credentials.deviceName || os.hostname(),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Login failed");
+    }
+    const data = await res.json();
+    try {
+      const { safeStorage } = await import("electron");
+      if (safeStorage.isEncryptionAvailable() && data.refreshToken) {
+        const encrypted = safeStorage.encryptString(data.refreshToken);
+        const credPath = join(app.getPath("userData"), "session.enc");
+        const fs = await import("node:fs/promises");
+        await fs.writeFile(credPath, encrypted);
+      }
+    } catch {
+      // safeStorage fallback
+    }
+    return { user: data.user };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_LOGOUT, async (event) => {
+    if (!validateIpcSender(event.sender, mainWindow)) {
+      throw new Error("Unauthorized IPC sender");
+    }
+    try {
+      const credPath = join(app.getPath("userData"), "session.enc");
+      const fs = await import("node:fs/promises");
+      await fs.unlink(credPath).catch(() => {});
+    } catch {
+      // Ignored
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_GET_STORED_SESSION, async (event) => {
+    if (!validateIpcSender(event.sender, mainWindow)) {
+      throw new Error("Unauthorized IPC sender");
+    }
+    try {
+      const credPath = join(app.getPath("userData"), "session.enc");
+      const fs = await import("node:fs/promises");
+      const encrypted = await fs.readFile(credPath).catch(() => null);
+      if (!encrypted) return null;
+      const { safeStorage } = await import("electron");
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      const refreshToken = safeStorage.decryptString(encrypted);
+      const apiBaseUrl =
+        process.env["VITE_API_BASE_URL"] || "http://127.0.0.1:3000";
+      const res = await fetch(`${apiBaseUrl}/api/v1/auth/desktop-refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.refreshToken) {
+        const newEnc = safeStorage.encryptString(data.refreshToken);
+        await fs.writeFile(credPath, newEnc);
+      }
+      const meRes = await fetch(`${apiBaseUrl}/api/v1/users/me`, {
+        headers: {
+          Authorization: `Bearer ${data.accessToken || data.refreshToken}`,
+        },
+      });
+      if (!meRes.ok) return null;
+      return await meRes.json();
+    } catch {
+      return null;
+    }
+  });
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();

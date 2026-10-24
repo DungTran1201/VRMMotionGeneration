@@ -7,14 +7,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['frontend/**/*.spec.ts', 'tests/**/*.spec.ts']
+    include: ['frontend/**/*.spec.ts', 'backend/**/*.spec.ts', 'tests/**/*.spec.ts']
   },
   resolve: {
     alias: {
       '@vrm/platform-contracts': resolve(__dirname, 'frontend/packages/platform-contracts/src'),
       '@vrm/shared': resolve(__dirname, 'frontend/packages/shared/src'),
       '@vrm/app-core': resolve(__dirname, 'frontend/packages/app-core/src'),
-      '@vrm/ui': resolve(__dirname, 'frontend/packages/ui/src')
+      '@vrm/ui': resolve(__dirname, 'frontend/packages/ui/src'),
+      '@vrm/backend': resolve(__dirname, 'backend/src')
     }
   }
 });

@@ -7,6 +7,11 @@ describe("Desktop IPC Contract & Channels", () => {
     expect(IPC_CHANNELS.GET_VERSION).toBe("app:get-version");
     expect(IPC_CHANNELS.GET_DIAGNOSTICS).toBe("app:get-diagnostics");
     expect(IPC_CHANNELS.PING).toBe("app:ping");
+    expect(IPC_CHANNELS.AUTH_LOGIN).toBe("app:auth-login");
+    expect(IPC_CHANNELS.AUTH_LOGOUT).toBe("app:auth-logout");
+    expect(IPC_CHANNELS.AUTH_GET_STORED_SESSION).toBe(
+      "app:auth-get-stored-session",
+    );
   });
 
   it("matches application version constant with semver pattern", () => {

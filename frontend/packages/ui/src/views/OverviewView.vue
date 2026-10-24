@@ -7,6 +7,89 @@ const store = useAppStore();
 
 <template>
   <div class="view-container">
+    <!-- Authenticated User Callout -->
+    <div v-if="store.state.isAuthenticated" class="auth-welcome-banner">
+      <div class="user-info-col">
+        <div class="user-greeting">
+          <span class="user-avatar-icon">👤</span>
+          <div>
+            <h2 class="user-name">
+              {{ store.state.user?.displayName || store.state.user?.email }}
+            </h2>
+            <div class="user-badges">
+              <span class="account-id-pill"
+                >ID: {{ store.state.user?.id.slice(0, 8) }}...</span
+              >
+              <span
+                class="unverified-pill"
+                title="Email is self-asserted and unverified per system architecture"
+              >
+                ⚠️ Unverified Contact Address
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="welcome-desc">
+          Authenticated across
+          {{
+            store.platform.value === "electron"
+              ? "Electron Desktop Shell (safeStorage token)"
+              : "Web Browser (HttpOnly session cookie)"
+          }}.
+        </p>
+      </div>
+      <div class="user-actions-col">
+        <button
+          id="overview-profile-btn"
+          class="secondary-btn"
+          @click="store.setTab('profile')"
+        >
+          User Profile
+        </button>
+        <button
+          id="overview-security-btn"
+          class="secondary-btn"
+          @click="store.setTab('security')"
+        >
+          Security & Sessions
+        </button>
+        <button
+          id="overview-secrets-btn"
+          class="secondary-btn"
+          @click="store.setTab('secrets')"
+        >
+          AI Keys Vault
+        </button>
+      </div>
+    </div>
+
+    <!-- Unauthenticated Callout -->
+    <div v-else class="auth-promo-banner">
+      <div class="promo-text">
+        <h3>Shared Web & Desktop Authentication</h3>
+        <p>
+          Instant registration with zero email verification delay. 15-character
+          password security policy.
+        </p>
+      </div>
+      <div class="promo-actions">
+        <button
+          id="overview-signin-btn"
+          class="secondary-btn"
+          @click="store.setTab('signin')"
+        >
+          Sign In
+        </button>
+        <button
+          id="overview-signup-btn"
+          class="primary-btn"
+          @click="store.setTab('signup')"
+        >
+          Create Account →
+        </button>
+      </div>
+    </div>
+
     <div class="hero">
       <div class="hero-badge">Architecture Reset Complete</div>
       <h1 class="hero-title">{{ APP_METADATA.name }}</h1>
@@ -24,11 +107,12 @@ const store = useAppStore();
         </div>
         <p class="card-text">
           Modular pnpm workspace isolating presentation
-          (<code>frontend/</code>), infra (<code>infra/</code>), and canonical
-          contracts (<code>schemas/</code>).
+          (<code>frontend/</code>), backend (<code>backend/</code>), infra
+          (<code>infra/</code>), and canonical contracts
+          (<code>schemas/</code>).
         </p>
         <div class="card-meta">
-          <span>Packages: 4</span>
+          <span>Packages: 5</span>
           <span>Apps: 2 (Web & Desktop)</span>
         </div>
       </div>
@@ -55,7 +139,7 @@ const store = useAppStore();
         </div>
         <p class="card-text">
           Preload contextBridge, OS sandbox, disabled nodeIntegration, strict
-          CSP, and allowlisted IPC channel isolation.
+          CSP, safeStorage session encryption, and allowlisted IPC.
         </p>
         <div class="card-meta">
           <span>Isolation: Active</span>
@@ -65,15 +149,16 @@ const store = useAppStore();
 
       <div class="card">
         <div class="card-header">
-          <span class="card-icon">🔬</span>
-          <h3>Evidence-First Status</h3>
+          <span class="card-icon">🔒</span>
+          <h3>Shared Auth & Database</h3>
         </div>
         <p class="card-text">
-          All legacy motion generation experiments, models, and checkpoints have
-          been purged. Zero simulated test gates.
+          Node.js 24 sqlite engine, scrypt password hashing, envelope-encrypted
+          AI key vault, and bifurcated cookie/bearer token sessions.
         </p>
         <div class="card-meta">
-          <span>Quality Gates: QG-01 to QG-08</span>
+          <span>Relational: SQLite Sync</span>
+          <span>Crypto: scrypt + AES-GCM</span>
         </div>
       </div>
     </div>
@@ -102,6 +187,124 @@ const store = useAppStore();
   max-width: 1100px;
   margin: 0 auto;
   padding: 40px 24px;
+}
+
+.auth-welcome-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(6, 182, 212, 0.08),
+    rgba(99, 102, 241, 0.08)
+  );
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 36px;
+  flex-wrap: wrap;
+}
+
+.user-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-greeting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-avatar-icon {
+  font-size: 2rem;
+  background: var(--bg-tertiary);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+}
+
+.user-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.user-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.account-id-pill {
+  font-size: 0.75rem;
+  font-family: var(--font-family-mono);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.unverified-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.welcome-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.user-actions-col {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-promo-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 36px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.promo-text h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.promo-text p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.promo-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .hero {

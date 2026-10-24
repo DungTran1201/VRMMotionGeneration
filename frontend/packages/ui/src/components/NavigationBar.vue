@@ -6,11 +6,23 @@ import StatusBadge from "./StatusBadge.vue";
 
 const store = useAppStore();
 
-const tabs: { id: NavigationTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "settings", label: "Settings" },
-  { id: "diagnostics", label: "Diagnostics" },
-];
+const activeTabs = computed<{ id: NavigationTab; label: string }[]>(() => {
+  if (store.state.isAuthenticated) {
+    return [
+      { id: "overview", label: "Overview" },
+      { id: "profile", label: "Profile" },
+      { id: "security", label: "Security" },
+      { id: "secrets", label: "AI Keys" },
+      { id: "settings", label: "Settings" },
+      { id: "diagnostics", label: "Diagnostics" },
+    ];
+  }
+  return [
+    { id: "overview", label: "Overview" },
+    { id: "settings", label: "Settings" },
+    { id: "diagnostics", label: "Diagnostics" },
+  ];
+});
 
 const platformLabel = computed(() =>
   store.platform.value === "electron" ? "Desktop App" : "Web Client",
@@ -30,7 +42,7 @@ const platformLabel = computed(() =>
 
     <nav class="nav-links" aria-label="Main Navigation">
       <button
-        v-for="tab in tabs"
+        v-for="tab in activeTabs"
         :key="tab.id"
         :id="`nav-tab-${tab.id}`"
         :class="['nav-btn', { active: store.state.currentTab === tab.id }]"
@@ -41,6 +53,46 @@ const platformLabel = computed(() =>
     </nav>
 
     <div class="nav-actions">
+      <!-- Auth Actions -->
+      <template v-if="store.state.isAuthenticated">
+        <button
+          id="nav-user-pill"
+          class="user-pill-btn"
+          title="Account Profile"
+          @click="store.setTab('profile')"
+        >
+          <span class="user-pill-icon">👤</span>
+          <span class="user-pill-name">{{
+            store.state.user?.displayName ||
+            store.state.user?.email?.split("@")[0]
+          }}</span>
+        </button>
+        <button
+          id="nav-signout-btn"
+          class="nav-auth-btn"
+          title="Sign Out"
+          @click="store.logout()"
+        >
+          Sign Out
+        </button>
+      </template>
+      <template v-else>
+        <button
+          id="nav-signin-btn"
+          class="nav-auth-btn"
+          @click="store.setTab('signin')"
+        >
+          Sign In
+        </button>
+        <button
+          id="nav-signup-btn"
+          class="nav-auth-primary-btn"
+          @click="store.setTab('signup')"
+        >
+          Register
+        </button>
+      </template>
+
       <button
         id="theme-toggle-btn"
         class="action-icon-btn"
@@ -132,6 +184,66 @@ const platformLabel = computed(() =>
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.user-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.user-pill-btn:hover {
+  border-color: var(--accent-cyan);
+}
+
+.user-pill-icon {
+  font-size: 0.85rem;
+}
+
+.user-pill-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-auth-btn {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition-fast);
+}
+
+.nav-auth-btn:hover {
+  color: var(--text-primary);
+  background: var(--border-subtle);
+}
+
+.nav-auth-primary-btn {
+  padding: 6px 14px;
+  background: var(--accent-cyan);
+  color: #000;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.nav-auth-primary-btn:hover {
+  background: #22d3ee;
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
 }
 
 .action-icon-btn {
