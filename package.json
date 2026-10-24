@@ -7,7 +7,7 @@
     "dev": "pnpm --filter @vrm/backend build && pnpm --parallel --filter @vrm/backend --filter @vrm/web dev",
     "dev:backend": "pnpm --filter @vrm/backend dev",
     "dev:web": "pnpm --filter @vrm/web dev",
-    "dev:desktop": "pnpm --filter @vrm/desktop dev",
+    "dev:desktop": "pnpm --filter @vrm/platform-contracts build && pnpm --filter @vrm/shared build && pnpm --filter @vrm/desktop dev",
     "build:web": "pnpm --filter @vrm/web build",
     "build:desktop": "pnpm --filter @vrm/desktop build",
     "build": "pnpm -r run build",

@@ -5,7 +5,7 @@
   "main": "./dist-electron/main/index.js",
   "type": "module",
   "scripts": {
-    "dev": "electron .",
+    "dev": "pnpm build:main && electron .",
     "build:main": "tsc -p tsconfig.node.json",
     "build:renderer": "vite build",
     "build": "pnpm build:main && pnpm build:renderer",
