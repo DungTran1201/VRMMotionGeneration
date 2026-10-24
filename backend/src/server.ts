@@ -69,6 +69,51 @@ export function createServer(options: ServerOptions): http.Server {
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
     const ipSubnet = clientIp.includes(':') ? `${clientIp.slice(0, clientIp.lastIndexOf(':'))}::/48` : `${clientIp.slice(0, clientIp.lastIndexOf('.'))}.0/24`;
 
+    // Root route / status landing
+    if (req.method === 'GET' && pathname === '/') {
+      const acceptsHtml = req.headers['accept']?.includes('text/html');
+      if (acceptsHtml) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VRM Backend Service</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0e17; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 32px; max-width: 520px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: center; }
+    h1 { color: #06b6d4; font-size: 1.5rem; margin-top: 0; }
+    p { color: #9ca3af; line-height: 1.6; }
+    .status { display: inline-block; background: rgba(16,185,129,0.15); color: #10b981; padding: 4px 12px; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; margin-bottom: 16px; }
+    .btn { display: inline-block; background: #06b6d4; color: #000; font-weight: 600; text-decoration: none; padding: 10px 20px; border-radius: 6px; margin: 8px; }
+    .btn-secondary { background: #1f2937; color: #f9fafb; border: 1px solid rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="status">● Backend API Server Running</div>
+    <h1>VRM Identity & Auth Service</h1>
+    <p>The backend REST API and SQLite relational database are active on port 3000.</p>
+    <div>
+      <a class="btn" href="http://localhost:5173" target="_blank">Open Web Client (Port 5173) &rarr;</a>
+      <a class="btn btn-secondary" href="/api/v1/health">Check /api/v1/health</a>
+    </div>
+  </div>
+</body>
+</html>`);
+        return;
+      }
+      sendJson(200, {
+        service: 'VRM Identity & Auth Platform',
+        status: 'online',
+        version: '0.1.0',
+        timestamp,
+        healthCheck: '/api/v1/health',
+        webClientUrl: 'http://localhost:5173'
+      });
+      return;
+    }
+
     // Health check (zero secrets)
     if (req.method === 'GET' && (pathname === '/api/v1/health' || pathname === '/health')) {
       sendJson(200, { status: 'healthy', version: '0.1.0', timestamp });
